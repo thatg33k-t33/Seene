@@ -1,0 +1,786 @@
+/* ─────────────────────────────  Shell  ───────────────────────────── */
+
+[data-seene-library] {
+    position: relative;
+    isolation: isolate;
+
+    display: flex;
+    flex-direction: column;
+
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+
+    color: var(--seene-text);
+    font-family: var(--seene-font);
+    -webkit-font-smoothing: antialiased;
+
+    background:
+        radial-gradient(
+            1100px 520px at 50% -10%,
+            rgba(139, 114, 181, 0.17),
+            transparent 62%
+        ),
+        radial-gradient(
+            720px 420px at 100% 100%,
+            rgba(139, 114, 181, 0.07),
+            transparent 60%
+        ),
+        var(--seene-bg);
+}
+
+[data-seene-library] *,
+[data-seene-library] *::before,
+[data-seene-library] *::after {
+    box-sizing: border-box;
+}
+
+/* faint engineering grid, fades out toward the edges */
+[data-seene-library]::before {
+    content: "";
+
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+
+    pointer-events: none;
+
+    background-image:
+        linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+    background-size: 56px 56px;
+
+    -webkit-mask-image: radial-gradient(
+        ellipse 70% 60% at 50% 35%,
+        #000,
+        transparent 100%
+    );
+    mask-image: radial-gradient(
+        ellipse 70% 60% at 50% 35%,
+        #000,
+        transparent 100%
+    );
+}
+
+/* ─────────────────────────────  Header  ───────────────────────────── */
+
+.seene-library-top {
+    position: relative;
+    z-index: 6;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+
+    height: 64px;
+    padding: 0 28px;
+
+    border-bottom: 1px solid var(--seene-line);
+
+    background: rgba(11, 11, 14, 0.72);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    backdrop-filter: blur(18px) saturate(140%);
+}
+
+.seene-library-top::after {
+    content: "";
+
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 1px;
+
+    pointer-events: none;
+
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(139, 114, 181, 0.55) 50%,
+        transparent
+    );
+    opacity: 0.55;
+}
+
+.seene-library-identity {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+
+    min-width: 0;
+}
+
+.seene-library-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+
+    color: var(--seene-text);
+    text-decoration: none;
+
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.7px;
+    line-height: 1;
+}
+
+.seene-library-brand::before {
+    content: "";
+
+    width: 20px;
+    height: 20px;
+
+    border-radius: 6px;
+
+    background:
+        radial-gradient(circle at 50% 50%, #0b0b0e 0 22%, transparent 24%),
+        conic-gradient(from 210deg, #c0b0da, #8b72b5, #4d3d70, #c0b0da);
+
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.08),
+        0 4px 18px var(--seene-accent-glow);
+
+    transition: transform 400ms var(--seene-ease);
+}
+
+.seene-library-brand:hover::before {
+    transform: rotate(90deg);
+}
+
+.seene-library-brand + * {
+    padding-left: 16px;
+
+    border-left: 1px solid var(--seene-line-strong);
+}
+
+.seene-library-top > a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+
+    padding: 8px 14px;
+
+    border: 1px solid var(--seene-line-strong);
+    border-radius: 999px;
+
+    background: var(--seene-surface);
+    color: var(--seene-text-2);
+
+    font-size: 12.5px;
+    font-weight: 500;
+    text-decoration: none;
+
+    transition:
+        background 180ms ease,
+        color 180ms ease,
+        border-color 180ms ease;
+}
+
+.seene-library-top > a::before {
+    content: "←";
+
+    transition: transform 240ms var(--seene-ease);
+}
+
+.seene-library-top > a:hover {
+    border-color: rgba(139, 114, 181, 0.5);
+    background: var(--seene-surface-2);
+    color: var(--seene-text);
+}
+
+.seene-library-top > a:hover::before {
+    transform: translateX(-3px);
+}
+
+/* ────────────────────────  Notices & issues  ──────────────────────── */
+
+.seene-library-notice {
+    position: relative;
+    z-index: 5;
+
+    margin: 14px 28px 0;
+    padding: 12px 16px;
+
+    border: 1px solid rgba(217, 178, 111, 0.28);
+    border-radius: 12px;
+
+    background: rgba(217, 178, 111, 0.06);
+    color: #b9a680;
+
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.seene-library-notice span {
+    color: #f0d9a8;
+    font-weight: 500;
+}
+
+.seene-library-notice a {
+    color: var(--seene-accent-hi);
+    text-underline-offset: 3px;
+}
+
+.seene-library-issues {
+    position: relative;
+    z-index: 5;
+
+    margin: 12px 28px 0;
+
+    border: 1px solid var(--seene-line);
+    border-radius: 12px;
+
+    background: rgba(22, 22, 27, 0.8);
+}
+
+.seene-library-issues summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    padding: 11px 16px;
+
+    color: var(--seene-text-2);
+
+    font-size: 12.5px;
+    font-weight: 500;
+
+    cursor: pointer;
+    list-style: none;
+}
+
+.seene-library-issues summary::-webkit-details-marker {
+    display: none;
+}
+
+.seene-library-issues summary::before {
+    content: "";
+
+    width: 6px;
+    height: 6px;
+
+    border-radius: 50%;
+
+    background: var(--seene-warn);
+    box-shadow: 0 0 10px rgba(217, 178, 111, 0.45);
+}
+
+.seene-library-issues summary::after {
+    content: "＋";
+
+    margin-left: auto;
+
+    color: var(--seene-text-3);
+}
+
+.seene-library-issues[open] summary::after {
+    content: "－";
+}
+
+.seene-library-issues summary:hover {
+    color: var(--seene-text);
+}
+
+.seene-library-issues ul {
+    margin: 0;
+    padding: 4px 16px 14px 32px;
+
+    border-top: 1px solid var(--seene-line);
+
+    color: var(--seene-text-3);
+
+    font-family: var(--seene-mono);
+    font-size: 12px;
+    line-height: 1.8;
+}
+
+.seene-library-issues li {
+    padding-top: 6px;
+}
+
+.seene-library-issues strong {
+    color: var(--seene-accent-hi);
+    font-weight: 500;
+}
+
+/* ───────────────────────────  Empty state  ─────────────────────────── */
+
+.seene-library-empty {
+    flex: 1;
+
+    display: grid;
+    place-items: center;
+
+    padding: 56px 24px 72px;
+
+    text-align: center;
+}
+
+.seene-library-empty > div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    width: min(100%, 780px);
+}
+
+.seene-library-empty > div > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+
+    padding: 7px 13px;
+
+    border: 1px solid var(--seene-line-strong);
+    border-radius: 999px;
+
+    background: rgba(22, 22, 27, 0.7);
+    color: var(--seene-accent-hi);
+
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1.6px;
+}
+
+.seene-library-empty > div > span::before {
+    content: "";
+
+    width: 5px;
+    height: 5px;
+
+    border-radius: 50%;
+
+    background: var(--seene-accent);
+    box-shadow: 0 0 10px var(--seene-accent-glow);
+}
+
+.seene-library-empty h1 {
+    margin: 26px 0 0;
+
+    color: var(--seene-text);
+
+    font-size: clamp(40px, 7.4vw, 76px);
+    font-weight: 500;
+    line-height: 0.96;
+    letter-spacing: clamp(-3.6px, -0.05em, -1.6px);
+    text-wrap: balance;
+}
+
+.seene-library-empty > div > p {
+    max-width: 460px;
+
+    margin: 22px 0 40px;
+
+    color: var(--seene-text-2);
+
+    font-size: 15px;
+    line-height: 1.65;
+    text-wrap: pretty;
+}
+
+.seene-library-empty .seene-onboarding {
+    width: 100%;
+
+    text-align: left;
+}
+
+/* ───────────────────────────  3D stage  ─────────────────────────── */
+
+.seene-library-scroll {
+    position: relative;
+
+    flex: 1;
+    min-height: 0;
+
+    overflow-x: hidden;
+    overflow-y: auto;
+
+    container-type: size;
+
+    scrollbar-width: thin;
+    scrollbar-color: #2e2e36 transparent;
+
+    outline: none;
+}
+
+.seene-library-scroll:focus-visible {
+    box-shadow: inset 0 0 0 1px rgba(139, 114, 181, 0.45);
+}
+
+.seene-library-stage {
+    position: sticky;
+    top: 0;
+
+    height: calc(100dvh - 64px);
+    overflow: hidden;
+
+    /* rows dissolve into the background above and below */
+    -webkit-mask-image: linear-gradient(
+        180deg,
+        transparent 0,
+        #000 9%,
+        #000 84%,
+        transparent 100%
+    );
+    mask-image: linear-gradient(
+        180deg,
+        transparent 0,
+        #000 9%,
+        #000 84%,
+        transparent 100%
+    );
+}
+
+@supports (height: 1cqh) {
+    .seene-library-stage {
+        height: 100cqh;
+    }
+}
+
+/* heading lives on the 3D plane */
+
+.seene-library-heading {
+    position: relative;
+
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+
+    height: 100%;
+    padding: 0 6px 28px;
+}
+
+.seene-library-heading::after {
+    content: "";
+
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+
+    background: linear-gradient(
+        90deg,
+        var(--seene-line-strong),
+        var(--seene-line) 60%,
+        transparent
+    );
+}
+
+.seene-library-heading h1 {
+    margin: 0;
+
+    color: var(--seene-text);
+
+    font-size: clamp(36px, 5.4vw, 56px);
+    font-weight: 500;
+    line-height: 0.95;
+    letter-spacing: -2.6px;
+}
+
+.seene-library-heading > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+
+    margin-bottom: 4px;
+    padding: 7px 13px;
+
+    border: 1px solid var(--seene-line-strong);
+    border-radius: 999px;
+
+    background: rgba(22, 22, 27, 0.8);
+    color: var(--seene-text-2);
+
+    font-size: 12px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.seene-library-heading > span::before {
+    content: "";
+
+    width: 5px;
+    height: 5px;
+
+    border-radius: 50%;
+
+    background: var(--seene-accent);
+    box-shadow: 0 0 10px var(--seene-accent-glow);
+}
+
+/* ─────────────────────────────  Rows  ───────────────────────────── */
+
+.seene-scene-row {
+    position: relative;
+
+    display: grid;
+    grid-template-columns: 184px minmax(0, 1fr) auto;
+    align-items: stretch;
+    gap: 26px;
+
+    width: 100%;
+    height: 136px; /* ROW_HEIGHT (150) minus 14px of breathing room */
+    margin-top: 7px;
+    padding: 10px 26px 10px 10px;
+
+    border: 1px solid var(--seene-line);
+    border-radius: 18px;
+
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 60%),
+        rgba(22, 22, 27, 0.86);
+    color: inherit;
+
+    text-decoration: none;
+
+    box-shadow:
+        0 18px 50px rgba(0, 0, 0, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.045);
+
+    transition:
+        border-color 220ms ease,
+        background 220ms ease,
+        box-shadow 320ms var(--seene-ease);
+}
+
+.seene-scene-row:hover,
+.seene-scene-row:focus-visible {
+    border-color: rgba(139, 114, 181, 0.55);
+
+    background:
+        radial-gradient(
+            420px 160px at 0% 0%,
+            rgba(139, 114, 181, 0.12),
+            transparent 70%
+        ),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 60%),
+        rgba(26, 26, 32, 0.92);
+
+    box-shadow:
+        0 0 0 1px rgba(139, 114, 181, 0.16),
+        0 26px 70px rgba(0, 0, 0, 0.5),
+        0 0 70px -24px var(--seene-accent-glow),
+        inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+.seene-scene-row:focus-visible {
+    outline: 2px solid var(--seene-accent-hi);
+    outline-offset: 3px;
+}
+
+/* thumbnail tile, index number sits on top of it */
+
+.seene-scene-number {
+    position: relative;
+    isolation: isolate;
+
+    display: flex;
+    align-items: flex-start;
+
+    padding: 12px 13px;
+    overflow: hidden;
+
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 11px;
+
+    background:
+        linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px) 0 0 /
+            100% 16px,
+        linear-gradient(135deg, #2b2240 0%, #17171c 68%);
+    color: rgba(255, 255, 255, 0.88);
+
+    font-family: var(--seene-mono);
+    font-size: 11px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.5px;
+    line-height: 1;
+}
+
+.seene-scene-number img {
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+
+    width: 100%;
+    height: 100%;
+
+    object-fit: cover;
+
+    transition: transform 700ms var(--seene-ease);
+}
+
+.seene-scene-number::after {
+    content: "";
+
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+
+    background: linear-gradient(180deg, rgba(8, 8, 10, 0.6), transparent 50%);
+}
+
+.seene-scene-row:hover .seene-scene-number img,
+.seene-scene-row:focus-visible .seene-scene-number img {
+    transform: scale(1.06);
+}
+
+.seene-scene-copy {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 7px;
+
+    min-width: 0;
+}
+
+.seene-scene-copy strong {
+    overflow: hidden;
+
+    color: var(--seene-text);
+
+    font-size: 19px;
+    font-weight: 500;
+    letter-spacing: -0.55px;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.seene-scene-copy > span {
+    display: -webkit-box;
+    overflow: hidden;
+
+    max-width: 52ch;
+
+    color: var(--seene-text-2);
+
+    font-size: 13px;
+    line-height: 1.55;
+
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.seene-scene-duration {
+    display: flex;
+    align-items: center;
+    align-self: center;
+    gap: 14px;
+
+    color: var(--seene-text-2);
+
+    font-family: var(--seene-mono);
+    font-size: 12px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
+.seene-scene-duration > span {
+    display: grid;
+    place-items: center;
+
+    width: 36px;
+    height: 36px;
+
+    border: 1px solid var(--seene-line-strong);
+    border-radius: 50%;
+
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--seene-text-2);
+
+    font-family: var(--seene-font);
+    font-size: 14px;
+
+    transition:
+        background 220ms ease,
+        border-color 220ms ease,
+        color 220ms ease,
+        transform 320ms var(--seene-ease);
+}
+
+.seene-scene-row:hover .seene-scene-duration > span,
+.seene-scene-row:focus-visible .seene-scene-duration > span {
+    border-color: var(--seene-accent);
+
+    background: var(--seene-accent-strong);
+    color: #fff;
+
+    transform: translate(2px, -2px);
+}
+
+/* ─────────────────────────────  Hint  ───────────────────────────── */
+
+.seene-library-hint {
+    position: absolute;
+    left: 50%;
+    bottom: 22px;
+    z-index: 7;
+
+    margin: 0;
+    padding: 9px 16px 9px 14px;
+
+    border: 1px solid var(--seene-line-strong);
+    border-radius: 999px;
+
+    background: rgba(17, 17, 21, 0.74);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    backdrop-filter: blur(14px) saturate(140%);
+    color: var(--seene-text-3);
+
+    font-size: 12px;
+    white-space: nowrap;
+
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+/* ───────────────────────────  Responsive  ─────────────────────────── */
+
+@media (max-width: 720px) {
+    .seene-library-top {
+        padding: 0 16px;
+    }
+
+    .seene-library-brand + * {
+        display: none;
+    }
+
+    .seene-library-notice,
+    .seene-library-issues {
+        margin-inline: 16px;
+    }
+
+    .seene-scene-row {
+        grid-template-columns: 92px minmax(0, 1fr);
+        gap: 16px;
+
+        padding-right: 16px;
+    }
+
+    .seene-scene-duration {
+        display: none;
+    }
+
+    .seene-scene-copy strong {
+        font-size: 16px;
+    }
+
+    .seene-library-heading h1 {
+        letter-spacing: -1.8px;
+    }
+
+    .seene-library-hint {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    [data-seene-library] * {
+        transition-duration: 0.01ms !important;
+    }
+}

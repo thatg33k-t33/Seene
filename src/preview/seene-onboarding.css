@@ -1,0 +1,480 @@
+.seene-onboarding {
+    width: min(100%, 780px);
+    margin: 0 auto;
+
+    color: var(--seene-text);
+    font-family: var(--seene-font);
+    -webkit-font-smoothing: antialiased;
+}
+
+.seene-onboarding *,
+.seene-onboarding *::before,
+.seene-onboarding *::after {
+    box-sizing: border-box;
+}
+
+.seene-onboarding-content {
+    position: relative;
+
+    padding: 40px;
+
+    border: 1px solid var(--seene-line-strong);
+    border-radius: 24px;
+
+    background:
+        radial-gradient(
+            circle at 92% 0%,
+            rgba(139, 114, 181, 0.14),
+            transparent 34%
+        ),
+        radial-gradient(
+            circle at 0% 100%,
+            rgba(255, 255, 255, 0.03),
+            transparent 34%
+        ),
+        var(--seene-surface);
+
+    box-shadow:
+        0 40px 110px rgba(0, 0, 0, 0.42),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* violet edge-light along the top border */
+.seene-onboarding-content::before {
+    content: "";
+
+    position: absolute;
+    top: -1px;
+    left: 12%;
+    right: 12%;
+    height: 1px;
+
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(192, 176, 218, 0.7),
+        transparent
+    );
+}
+
+/* ───────────────────────────  Header  ─────────────────────────── */
+
+.seene-onboarding-header {
+    max-width: 640px;
+}
+
+.seene-onboarding-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+
+    margin-bottom: 20px;
+    padding: 6px 12px 6px 10px;
+
+    border: 1px solid var(--seene-line-strong);
+    border-radius: 999px;
+
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--seene-accent-hi);
+
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1.6px;
+}
+
+.seene-onboarding-header h2 {
+    margin: 0;
+
+    color: var(--seene-text);
+
+    font-size: clamp(32px, 5vw, 50px);
+    font-weight: 500;
+    line-height: 0.98;
+    letter-spacing: -2.4px;
+    text-wrap: balance;
+}
+
+.seene-onboarding-header p {
+    max-width: 540px;
+
+    margin: 20px 0 0;
+
+    color: var(--seene-text-2);
+
+    font-size: 15px;
+    line-height: 1.7;
+    text-wrap: pretty;
+}
+
+.seene-onboarding-divider {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+
+    margin-top: 40px;
+
+    color: var(--seene-text-3);
+
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1.6px;
+}
+
+.seene-onboarding-divider::after {
+    content: "";
+
+    height: 1px;
+    flex: 1;
+
+    background: linear-gradient(90deg, var(--seene-line-strong), transparent);
+}
+
+/* ────────────────────────────  Steps  ──────────────────────────── */
+
+.seene-onboarding-steps {
+    margin-top: 22px;
+}
+
+.seene-onboarding-step {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 18px;
+
+    padding-bottom: 30px;
+}
+
+.seene-onboarding-step:last-child {
+    padding-bottom: 0;
+}
+
+.seene-onboarding-step-marker {
+    position: relative;
+
+    display: flex;
+    justify-content: flex-start;
+}
+
+/* connector line: the steps are a real sequence, so the line means something */
+.seene-onboarding-step:not(:last-child) .seene-onboarding-step-marker::after {
+    content: "";
+
+    position: absolute;
+    top: 44px;
+    bottom: -22px;
+    left: 16.5px;
+
+    width: 1px;
+
+    background: linear-gradient(180deg, var(--seene-line-strong), transparent);
+}
+
+.seene-onboarding-step-marker span {
+    display: grid;
+    place-items: center;
+
+    width: 34px;
+    height: 34px;
+
+    border: 1px solid var(--seene-line-strong);
+    border-radius: 10px;
+
+    background: var(--seene-surface-2);
+    color: var(--seene-accent-hi);
+
+    font-family: var(--seene-mono);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.seene-onboarding-step-body h3 {
+    margin: 6px 0 0;
+
+    color: var(--seene-text);
+
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: -0.25px;
+}
+
+.seene-onboarding-step-body p {
+    max-width: 560px;
+
+    margin: 7px 0 0;
+
+    color: var(--seene-text-2);
+
+    font-size: 13.5px;
+    line-height: 1.7;
+}
+
+.seene-command {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+
+    max-width: 100%;
+    margin-top: 14px;
+    padding: 10px 14px;
+
+    border: 1px solid var(--seene-line-strong);
+    border-radius: 10px;
+
+    background: var(--seene-bg-elev);
+    color: var(--seene-text-3);
+
+    font-family: var(--seene-mono);
+    font-size: 12.5px;
+
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.seene-command code {
+    overflow-x: auto;
+
+    color: var(--seene-accent-hi);
+
+    font-family: inherit;
+    font-size: inherit;
+    white-space: nowrap;
+}
+
+/* ─────────────────────────  Agent prompt  ───────────────────────── */
+
+.seene-prompt {
+    position: relative;
+
+    margin-top: 32px;
+    padding: 22px;
+
+    border: 1px solid var(--seene-line-strong);
+    border-radius: 16px;
+
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 40%),
+        var(--seene-bg-elev);
+
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.seene-prompt-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+
+    border-bottom: 1px solid var(--seene-line);
+}
+
+.seene-prompt-header > div {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.seene-prompt-eyebrow {
+    color: var(--seene-text-3);
+
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: 1.4px;
+}
+
+.seene-prompt-header strong {
+    color: var(--seene-text);
+
+    font-size: 13.5px;
+    font-weight: 500;
+    letter-spacing: -0.15px;
+}
+
+.seene-prompt-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    color: var(--seene-text-2);
+
+    font-size: 12px;
+}
+
+.seene-prompt-status span {
+    width: 6px;
+    height: 6px;
+
+    border-radius: 50%;
+
+    background: var(--seene-ok);
+    box-shadow: 0 0 10px rgba(131, 198, 165, 0.5);
+
+    animation: seene-pulse 2.6s ease-in-out infinite;
+}
+
+@keyframes seene-pulse {
+    50% {
+        opacity: 0.45;
+    }
+}
+
+.seene-prompt > p {
+    max-width: 620px;
+
+    margin: 0;
+    padding-right: 150px;
+
+    color: #d6d6dc;
+
+    font-size: 14px;
+    line-height: 1.75;
+}
+
+.seene-prompt-copy {
+    position: absolute;
+    right: 18px;
+    bottom: 18px;
+
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+
+    padding: 10px 15px;
+
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 10px;
+
+    background: linear-gradient(180deg, #9a82c4, var(--seene-accent-strong));
+    color: #fff;
+
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 500;
+
+    cursor: pointer;
+
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.25),
+        0 8px 24px -8px var(--seene-accent-glow);
+
+    transition:
+        filter 160ms ease,
+        transform 160ms ease,
+        box-shadow 220ms ease;
+}
+
+.seene-prompt-copy:hover:not(:disabled) {
+    filter: brightness(1.1);
+
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        0 10px 30px -6px var(--seene-accent-glow);
+}
+
+.seene-prompt-copy:active:not(:disabled) {
+    transform: scale(0.97);
+}
+
+.seene-prompt-copy:focus-visible {
+    outline: 2px solid var(--seene-accent-hi);
+    outline-offset: 3px;
+}
+
+.seene-prompt-copy:disabled {
+    cursor: wait;
+    opacity: 0.6;
+}
+
+/* ───────────────────────────  Footer  ─────────────────────────── */
+
+.seene-onboarding-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+
+    margin-top: 28px;
+    padding-top: 24px;
+
+    border-top: 1px solid var(--seene-line);
+}
+
+.seene-onboarding-footer > div {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.seene-onboarding-footer-title {
+    color: var(--seene-text);
+
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.seene-onboarding-footer-copy {
+    color: var(--seene-text-3);
+
+    font-size: 12px;
+}
+
+.seene-copy-status {
+    margin: 14px 0 0;
+
+    color: var(--seene-text-3);
+
+    font-size: 11.5px;
+}
+
+/* ─────────────────────────  Responsive  ───────────────────────── */
+
+@media (max-width: 650px) {
+    .seene-onboarding-content {
+        padding: 24px;
+
+        border-radius: 18px;
+    }
+
+    .seene-onboarding-header h2 {
+        font-size: 34px;
+        letter-spacing: -1.7px;
+    }
+
+    .seene-onboarding-step {
+        grid-template-columns: 42px minmax(0, 1fr);
+        gap: 14px;
+    }
+
+    .seene-onboarding-step-marker span {
+        width: 30px;
+        height: 30px;
+    }
+
+    .seene-onboarding-step:not(:last-child)
+        .seene-onboarding-step-marker::after {
+        top: 40px;
+        left: 14.5px;
+    }
+
+    .seene-prompt > p {
+        padding-right: 0;
+        padding-bottom: 52px;
+    }
+
+    .seene-onboarding-footer {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .seene-prompt-status span {
+        animation: none;
+    }
+
+    .seene-onboarding * {
+        transition-duration: 0.01ms !important;
+    }
+}

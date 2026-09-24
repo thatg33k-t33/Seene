@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "id": "website",
+  "title": "Website",
+  "description": "Authored in Seene Studio",
+  "definition": {
+    "scene": {
+      "camera": {
+        "perspective": 1800,
+        "rotateX": 4,
+        "rotateY": -7
+      },
+      "focus": {
+        "distance": 1800,
+        "fStop": 8,
+        "maxBlur": 6
+      },
+      "nodes": [
+        {
+          "id": "flute-application"
+        }
+      ]
+    },
+    "motion": {
+      "durationMs": 4000,
+      "tracks": []
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "dist/library/types",
+    "rootDir": "src",
+    "types": [
+      "react",
+      "react-dom",
+      "vite/client"
+    ]
+  },
+  "include": [
+    "src/index.ts",
+    "src/core",
+    "src/react",
+    "src/preview"
+  ],
+  "exclude": [
+    "demo",
+    "tests"
+  ]
+}

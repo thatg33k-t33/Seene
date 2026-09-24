@@ -1,0 +1,41 @@
+/*
+  Seene design tokens
+  Import once, before the library and onboarding styles.
+  Optional: `npm i @fontsource-variable/geist @fontsource-variable/geist-mono`
+  and import both packages to get the intended typeface. Falls back to system UI.
+*/
+:root {
+    --seene-font:
+        "Geist Variable", "Geist", "Inter Variable", "Inter", ui-sans-serif,
+        system-ui, -apple-system, "Segoe UI", sans-serif;
+    --seene-mono:
+        "Geist Mono Variable", "Geist Mono", ui-monospace, SFMono-Regular,
+        Menlo, Consolas, monospace;
+
+    /* surfaces */
+    --seene-bg: #0b0b0e;
+    --seene-bg-elev: #111115;
+    --seene-surface: #16161b;
+    --seene-surface-2: #1d1d23;
+
+    /* lines */
+    --seene-line: #25252c;
+    --seene-line-strong: #34343d;
+
+    /* text */
+    --seene-text: #f1f1f4;
+    --seene-text-2: #a2a2ac;
+    --seene-text-3: #70707a;
+
+    /* accent */
+    --seene-accent: #8b72b5;
+    --seene-accent-strong: #7d64a8;
+    --seene-accent-hi: #c0b0da;
+    --seene-accent-glow: rgba(139, 114, 181, 0.35);
+
+    /* status */
+    --seene-ok: #83c6a5;
+    --seene-warn: #d9b26f;
+
+    --seene-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}

@@ -1,0 +1,20 @@
+node_modules/
+dist/
+playwright-report/
+test-results/
+.env
+.env.*
+!.env.example
+.morphite/
+
+# Host-provided instructions remain local and are regenerated per worktree.
+/AGENTS.md
+/CLAUDE.md
+/MORPHITE-GUARDRAIL-v2.md
+
+.test-dist/
+
+.local-package/
+local-project/.flute/init-pending.json
+
+.release/
