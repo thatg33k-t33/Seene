@@ -3,12 +3,6 @@ import { platformApi, settingsHref, studioHref } from "./api";
 import { useResource } from "./data";
 import { Command, Notice, Panel, StatusPill, buttonPrimary, buttonQuiet, fieldClass } from "./ui";
 
-/** SOURCE OF TRUTH: ProjectsView.
- * WHAT: list the React applications this machine has connected, add another folder, and forget one.
- * WHY: a project is an external application; the platform owns only its own registry.
- * WHERE: app/main.tsx renders it for the platform's default route.
- */
-
 export function ProjectsView() {
   const projects = useResource("projects", () => platformApi.projects());
   const [target, setTarget] = useState("");

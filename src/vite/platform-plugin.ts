@@ -19,14 +19,6 @@ import {
   removeSceneSourcePair, resolveProjectTarget, writeSceneSourcePair,
 } from "./scene-files";
 
-/** SOURCE OF TRUTH: seenePlatformPlugin.
- * WHAT: serve the local Seene platform's project registry, external-project inspection, scene catalog,
- * application content discovery, scene creation/removal and preview status as one loopback-only API.
- * WHY: the browser cannot read a developer's filesystem, and the platform must operate on applications that
- * live outside this repository without becoming their owner.
- * WHERE: root vite.config.ts mounts it on the platform's own dev and preview servers.
- */
-
 const maxBodyBytes = 128_000;
 const loopbackOrigin = /^http:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::[0-9]+)?\/?$/;
 const packageManagers = ["npm", "pnpm", "yarn", "bun"] as const;
@@ -72,7 +64,6 @@ async function readJson(target: string): Promise<unknown> {
   return JSON.parse(await readFile(target, "utf8")) as unknown;
 }
 
-/** Mount the platform API on the platform's own dev or preview server. */
 export function seenePlatformPlugin(): Plugin {
   const mount = (server: ViteDevServer | PreviewServer) => {
     server.middlewares.use(createHandler({ platformRoot: path.resolve(server.config.root) }));
@@ -105,7 +96,6 @@ async function saveRegistry(home: PlatformHome, entries: ProjectEntry[]): Promis
 
 type Manifest = { name?: unknown; packageManager?: unknown; dependencies?: Record<string, unknown>; devDependencies?: Record<string, unknown> };
 
-/** Summarize one external application. The platform reads facts; it never rewrites someone else's sources. */
 async function inspectProject(root: string, entry: ProjectEntry): Promise<{ react: boolean; project: PlatformProject }> {
   const issues: SceneIssue[] = [];
   let name = entry.name;
@@ -263,5 +253,3 @@ function createHandler(options: { platformRoot?: string }) {
     })();
   };
 }
-
-

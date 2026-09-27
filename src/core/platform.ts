@@ -4,15 +4,6 @@ import { motionDuration } from "./motion";
 import type { PreviewDefinitionInput } from "./preview";
 import type { SceneIssue } from "./scene";
 
-/** SOURCE OF TRUTH: PlatformProjectSchema, ProjectRegistrySchema, PlatformCatalogSchema, PlatformSceneSchema,
- * PlatformContentSchema, RegisterProjectSchema, SceneDraftSchema, PlatformStatusSchema.
- * WHAT: validate the local platform's project registry, external-project summaries, scene catalog and
- * scene drafts, and derive the presentation settings a created scene starts from.
- * WHY: the platform, the host Vite bridges and the browser client must share one contract without
- * reading or writing each other's files.
- * WHERE: src/vite plugins answer with these shapes; src/platform renders them; tests validate the API.
- */
-
 export const PLATFORM_HOME_DIRECTORY = ".seene";
 export const PLATFORM_REGISTRY_FILE = "projects.json";
 export const PLATFORM_API_PREFIX = "/__seene/platform";
@@ -116,7 +107,7 @@ export type PlatformScene = z.output<typeof PlatformSceneSchema>;
 export type PlatformContent = z.output<typeof PlatformContentSchema>;
 export type PlatformStatus = z.output<typeof PlatformStatusSchema>;
 export type SceneDraft = z.output<typeof SceneDraftSchema>;
-/** Registry text is user-editable; keep every valid entry and silently drop the rest. */
+
 export function loadProjectRegistry(text: string | undefined): ProjectRegistry {
   if (text === undefined) return { version: 1, projects: [] };
   let document: unknown;
@@ -135,7 +126,6 @@ export function registryWithout(root: string, entries: ProjectEntry[]): ProjectR
   return { version: 1, projects: entries.filter(entry => entry.path !== root) };
 }
 
-/** A scene slug that satisfies the canonical recipe id contract. */
 export function sceneIdFromTitle(title: string): string {
   return title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
@@ -144,7 +134,6 @@ export function sceneComponentName(id: string): string {
   return "Scene" + id.split("-").filter(Boolean).map(part => part.charAt(0).toUpperCase() + part.slice(1)).join("");
 }
 
-/** The presentation starting point for a new scene: close oblique framing, shallow focus, slow travel. */
 export function defaultSceneDefinition(): PreviewDefinitionInput {
   return {
     scene: {
@@ -167,11 +156,6 @@ export function createSceneRecipe(input: { id: string; title: string; descriptio
   });
 }
 
-/**
- * Generated scene source. Without a selection the scene presents the whole application subtree the host
- * passes to ProjectPreview; with a selection it renders that application's own component. Seene never
- * generates stand-in product UI.
- */
 export function sceneComponentSource(input: { id: string; content?: { importSpecifier: string; export?: string } }): string {
   const name = sceneComponentName(input.id);
   const open = `    <Surface id=${JSON.stringify(SCENE_PRESENTATION_SURFACE)} style={{ width: ${SCENE_PRESENTATION_WIDTH}, height: ${SCENE_PRESENTATION_HEIGHT} }}>`;
@@ -203,7 +187,6 @@ ${open}
 `;
 }
 
-/** Which application module a scene may present. Only the developer's own source qualifies. */
 export function isApplicationSourcePath(target: string): boolean {
   const normalized = target.replace(/\\/g, "/").replace(/^\.\//, "");
   if (normalized.includes("..")) return false;
@@ -211,7 +194,6 @@ export function isApplicationSourcePath(target: string): boolean {
   return !normalized.startsWith(SCENE_RECIPE_DIRECTORY + "/");
 }
 
-/** Discover the components a developer can choose from. Text analysis only; the file itself is re-read before use. */
 export function analyzeApplicationModule(source: string): { default: boolean; exports: string[] } {
   const found = new Set<string>();
   const patterns = [
@@ -228,14 +210,12 @@ export function analyzeApplicationModule(source: string): { default: boolean; ex
   return { default: /export\s+default\b/.test(source), exports: [...found].sort((a, b) => a.localeCompare(b)) };
 }
 
-/** The development studio URL for a connected project. A React adapter mounts the wrapper on its own route. */
 export function previewUrl(adapter: string | undefined, origin: string, sceneId?: string): string {
   const base = origin.replace(/\/+$/, "");
   const route = adapter === "next-app" || adapter === "next-pages" ? "/seene" : "/";
   return `${base}${route}?seene-preview=1${sceneId ? `&seene-scene=${sceneId}` : ""}`;
 }
 
-/** Platform state lives outside any application, so Seene never becomes the owner of a consumer's filesystem. */
 export function platformHome(configured: string | undefined, home: string): string {
   const value = configured?.trim();
   return value ? value : `${home.replace(/[\\/]+$/, "")}/${PLATFORM_HOME_DIRECTORY}`;
@@ -264,4 +244,3 @@ export function issueFor(error: unknown, target = ""): SceneIssue {
     message: known ? (error as Error).message : "Unable to read this project's files. Check the path and permissions, then retry.",
   };
 }
-

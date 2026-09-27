@@ -1,11 +1,5 @@
 import type { ReactNode } from "react";
 
-/** SOURCE OF TRUTH: Panel, Command, StatusPill, buttonPrimary, buttonQuiet, fieldClass.
- * WHAT: the platform's shared presentation primitives.
- * WHY: one visual language for Projects, Studio, Settings and Presentation.
- * WHERE: src/platform views compose these elements.
- */
-
 export const buttonPrimary = "inline-flex h-10 items-center justify-center rounded-lg bg-[#f1f1f4] px-4 text-sm font-medium text-[#111114] transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 disabled:opacity-40";
 export const buttonQuiet = "inline-flex h-10 items-center justify-center rounded-lg border border-[#303038] px-4 text-sm font-medium text-[#85858e] transition-colors hover:border-[#55555d] hover:text-[#f1f1f4] focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 disabled:opacity-40";
 export const fieldClass = "h-10 w-full rounded-lg border border-[#303038] bg-[#19191e] px-3 font-mono text-sm text-[#f1f1f4] placeholder:text-[#55555d] focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2";

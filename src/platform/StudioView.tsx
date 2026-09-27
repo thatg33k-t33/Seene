@@ -5,13 +5,6 @@ import { useResource } from "./data";
 import { CreateSceneDialog } from "./CreateSceneDialog";
 import { Command, Notice, Panel, StatusPill, buttonPrimary, buttonQuiet, fieldClass } from "./ui";
 
-/** SOURCE OF TRUTH: StudioView.
- * WHAT: the project studio: its real scene library, creation bound to real application UI, and the live
- * preview embedded from the application's own development server.
- * WHY: presentation belongs to Seene while content stays with the application that owns it.
- * WHERE: the platform's studio route renders it; app/main.tsx is the platform entry.
- */
-
 export function StudioView({ project }: { project: string }) {
   const catalog = useResource(`catalog:${project}`, () => platformApi.catalog(project));
   const [selected, setSelected] = useState("");

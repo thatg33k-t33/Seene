@@ -4,12 +4,6 @@ import { platformApi, studioHref } from "./api";
 import { useResource } from "./data";
 import { Notice, buttonPrimary, buttonQuiet, fieldClass } from "./ui";
 
-/** SOURCE OF TRUTH: CreateSceneDialog.
- * WHAT: name a new scene and bind it to content that already exists in the developer's application.
- * WHY: scenes describe presentation, so creation must reference the real UI and never generate stand-in UI.
- * WHERE: the Studio opens this dialog; the platform API writes the recipe into the project.
- */
-
 type Selection = { file: string; export?: string };
 
 function selectionValue(selection: Selection): string { return selection.export ? `${selection.file}#${selection.export}` : selection.file; }

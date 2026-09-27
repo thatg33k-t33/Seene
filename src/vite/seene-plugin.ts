@@ -5,12 +5,6 @@ import { SceneRecipeSchema } from "../core/recipes";
 import { sceneComponentSource } from "../core/platform";
 import { PlatformFault, writeSceneSourcePair } from "./scene-files";
 
-/** SOURCE OF TRUTH: seeneCreateScenePlugin.
- * WHAT: create a scene recipe/component pair on the application's own Vite dev server.
- * WHY: authoring writes into the application that already owns the UI, so Seene never hosts scene content.
- * WHERE: consumer Vite configs add it to their plugins array; the local platform uses its own bridge.
- */
-
 const route = "/__seene/create-scene";
 const maxBodyBytes = 256_000;
 

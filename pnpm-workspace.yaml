@@ -3,7 +3,9 @@ packages:
   - "examples/*"
   - "apps/*"
   - "packages/*"
-allowBuilds:
-  esbuild: true
+onlyBuiltDependencies:
+  - esbuild
 minimumReleaseAgeExclude:
   - lucide-react@1.48.0
+allowBuilds:
+  esbuild: true

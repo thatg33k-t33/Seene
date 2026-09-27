@@ -3,12 +3,6 @@ import {
   type PlatformStatus,
 } from "../core/platform";
 
-/** SOURCE OF TRUTH: platformApi, readRoute.
- * WHAT: call the local Seene platform API and read the platform's own route state.
- * WHY: the platform surface must not import project or host code, only its shared contract.
- * WHERE: src/platform views and routing use these helpers.
- */
-
 export type ProjectsResponse = { home: string; projects: PlatformProject[] };
 export type CatalogResponse = { project: PlatformProject; catalog: PlatformCatalog };
 export type ContentResponse = { project: PlatformProject; content: PlatformContent };

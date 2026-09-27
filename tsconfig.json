@@ -17,7 +17,12 @@
     "types": [
       "node",
       "vite/client"
-    ]
+    ],
+    "paths": {
+      "@thatg33k/seene": ["./src/index.ts"],
+      "@thatg33k/seene/preview": ["./src/preview/index.tsx"],
+      "@thatg33k/seene/*": ["./src/*"]
+    }
   },
   "include": [
     "src",

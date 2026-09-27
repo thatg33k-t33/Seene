@@ -5,14 +5,6 @@ import { RESOURCES } from "../core/resources";
 import { analyzeApplicationModule, isApplicationSourcePath, type PlatformContent } from "../core/platform";
 import type { SceneIssue } from "../core/scene";
 
-/** SOURCE OF TRUTH: resolveProjectTarget, readSceneCatalog, writeSceneSourcePair, removeSceneSourcePair,
- * discoverApplicationContent, componentImportSpecifier.
- * WHAT: read and write one project's scene recipes and application sources through scoped, symlink-safe paths.
- * WHY: the consumer bridge and the local platform bridge must share exactly one file implementation while the
- * catalog policy itself stays in core.
- * WHERE: src/vite/seene-plugin.ts and src/vite/platform-plugin.ts call these operations.
- */
-
 export class PlatformFault extends Error {
   code: string;
   target: string;
@@ -28,10 +20,6 @@ const protectedParts = new Set([".git", "node_modules"]);
 const maxRecipeBytes = 256_000;
 const maxSourceBytes = 64_000;
 
-/**
- * Resolve a project-relative target inside one application root. Absolute targets, traversal, protected
- * directories and symlinked segments are refused so a registered project cannot escape its own root.
- */
 export async function resolveProjectTarget(root: string, target: string): Promise<string> {
   if (path.isAbsolute(target)) throw new PlatformFault("denied-path", "Use a project-relative path.", target);
   const relative = target.replace(/^[/\\]+/, "");
@@ -60,7 +48,6 @@ async function readScoped(root: string, target: string, limit: number): Promise<
   return readFile(absolute, "utf8");
 }
 
-/** Read a project's canonical catalog: the same contract the CLI uses, served from the platform process. */
 export async function readSceneCatalog(root: string, sceneId?: string): Promise<SceneCatalog> {
   const directory = await resolveProjectTarget(root, SCENE_RECIPE_DIRECTORY).catch(() => undefined);
   const entries = directory ? await readdir(directory, { withFileTypes: true }).catch(() => []) : [];
@@ -81,7 +68,6 @@ export async function readSceneCatalog(root: string, sceneId?: string): Promise<
   return { ...catalog, issues: [...issues, ...catalog.issues].sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0) };
 }
 
-/** Write one scene source pair. Files are created exclusively; an existing pair is never overwritten. */
 export async function writeSceneSourcePair(root: string, id: string, recipe: SceneRecipe, componentSource: string): Promise<"created" | "exists"> {
   const directory = await resolveProjectTarget(root, SCENE_RECIPE_DIRECTORY);
   const recipePath = path.join(directory, `${id}.scene.json`);
@@ -111,7 +97,6 @@ export async function removeSceneSourcePair(root: string, id: string): Promise<b
   return removed;
 }
 
-/** List the application's own component modules so a scene can present real UI instead of stand-in content. */
 export async function discoverApplicationContent(root: string, limit = 400): Promise<PlatformContent> {
   const files: PlatformContent["files"] = [];
   const walk = async (relative: string) => {
@@ -141,9 +126,7 @@ export async function discoverApplicationContent(root: string, limit = 400): Pro
   return { files: files.sort((a, b) => a.path.localeCompare(b.path)) };
 }
 
-/** The import specifier a scene component uses to render an application module. */
 export function componentImportSpecifier(target: string): string {
   const relative = path.posix.relative(SCENE_RECIPE_DIRECTORY, target.replace(/\\/g, "/")).replace(/\.(?:tsx|jsx)$/, "");
   return relative.startsWith(".") ? relative : `./${relative}`;
 }
-

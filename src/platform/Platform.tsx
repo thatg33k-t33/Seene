@@ -6,12 +6,6 @@ import { PresentationView } from "./PresentationView";
 import { PROJECTS_ROUTE } from "./api";
 import { useHashRoute } from "./data";
 
-/** SOURCE OF TRUTH: Platform.
- * WHAT: the Seene product shell: a header plus the route that selects Projects, Studio, Settings or Presentation.
- * WHY: Seene itself is the canonical application; consumer projects are external and never mounted here.
- * WHERE: app/main.tsx renders it as the platform's root component.
- */
-
 export function Platform() {
   const route = useHashRoute();
   return (

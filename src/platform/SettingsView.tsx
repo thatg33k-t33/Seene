@@ -3,13 +3,6 @@ import { PROJECTS_ROUTE, platformApi } from "./api";
 import { useResource } from "./data";
 import { Command, Notice, Panel, StatusPill, buttonQuiet } from "./ui";
 
-/** SOURCE OF TRUTH: SettingsView.
- * WHAT: one project's connection facts, its scene directory, the CLI commands that keep it healthy, and
- * the option to forget it.
- * WHY: the platform must describe the external application truthfully without taking ownership of it.
- * WHERE: the platform's settings route renders it.
- */
-
 const connectionLabels: Record<string, string> = {
   "next-app": "Next.js App Router",
   "next-pages": "Next.js Pages Router",

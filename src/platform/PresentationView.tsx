@@ -4,12 +4,6 @@ import { platformApi, presentHref, studioHref } from "./api";
 import { useResource } from "./data";
 import { Notice, buttonPrimary, buttonQuiet, fieldClass } from "./ui";
 
-/** SOURCE OF TRUTH: PresentationView.
- * WHAT: present the project's scenes in sequence, full bleed, from the application's own development server.
- * WHY: an experience is composed from real application scenes, so Seene plays them where they render.
- * WHERE: the platform's presentation route renders it.
- */
-
 export function PresentationView({ project, scene }: { project: string; scene: string }) {
   const catalog = useResource(`catalog:${project}`, () => platformApi.catalog(project));
   const [origin, setOrigin] = useState("http://127.0.0.1:5173");

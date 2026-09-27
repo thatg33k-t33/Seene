@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "projectId": "f3ccd191-e177-4572-a293-86a4804daeb8",
+  "entry": "src/main.tsx",
+  "packageManager": "pnpm"
+}

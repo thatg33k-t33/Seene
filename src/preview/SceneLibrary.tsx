@@ -1,4 +1,3 @@
-
 import {
   useCallback,
   useEffect,
@@ -6,6 +5,7 @@ import {
   useRef,
   useState,
   type ComponentType,
+  type FormEvent,
   type MouseEvent,
   type ReactNode,
 } from "react";
@@ -19,7 +19,6 @@ import {
 } from "../core";
 
 import { Scene, Surface, SceneErrorBoundary } from "../react";
-
 import { ScenePreview } from "./ScenePreview";
 import type { PreviewHot } from "./connection";
 import { GettingStarted } from "./GettingStarted";
@@ -146,6 +145,12 @@ export function SceneLibrary({
     height: 1000,
   });
 
+  const [isCreating, setIsCreating] = useState(false);
+  const [createTitle, setCreateTitle] = useState("");
+  const [createDescription, setCreateDescription] = useState("");
+  const [createError, setCreateError] = useState("");
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+
   const scrollerRef = useRef<HTMLDivElement>(null);
   const savedScrollRef = useRef(0);
 
@@ -264,17 +269,29 @@ export function SceneLibrary({
     setSceneId(undefined);
   }, [buildDestination]);
 
-  const handleCreateScene = async () => {
-    const titlePrompt = window.prompt("Enter scene title (e.g. Dashboard Showcase):");
-    if (!titlePrompt || !titlePrompt.trim()) return;
-    const title = titlePrompt.trim();
+  const openCreateDialog = () => {
+    setCreateTitle("");
+    setCreateDescription("");
+    setCreateError("");
+    setCreateSubmitting(false);
+    setIsCreating(true);
+  };
+
+  const handleCreateSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!createTitle.trim()) return;
+
+    setCreateSubmitting(true);
+    setCreateError("");
+
+    const title = createTitle.trim();
     const id = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || `scene-${Date.now()}`;
 
     const recipe = {
       version: 1,
       id,
       title,
-      description: "Authored in Seene Studio",
+      description: createDescription.trim() || "Authored in Seene Studio",
       definition: {
         scene: {
           version: 3,
@@ -294,14 +311,17 @@ export function SceneLibrary({
       });
       const data = await res.json();
       if (data.success) {
+        setIsCreating(false);
         const destination = buildDestination(id);
         window.history.pushState({}, "", destination);
-        window.location.reload();
+        setSceneId(id);
       } else {
-        alert("Failed to create scene: " + (data.error || "Unknown error"));
+        setCreateError(data.error || "Failed to create scene.");
+        setCreateSubmitting(false);
       }
     } catch (err: any) {
-      alert("Failed to communicate with local development server: " + err.message);
+      setCreateError("Failed to communicate with local development server: " + (err.message || String(err)));
+      setCreateSubmitting(false);
     }
   };
 
@@ -377,7 +397,7 @@ export function SceneLibrary({
             <p className="text-sm text-[#85858e]">Create your first cinematic scene to showcase your React components.</p>
             <button
               type="button"
-              onClick={handleCreateScene}
+              onClick={openCreateDialog}
               className="mt-4 appearance-none border border-white/20 rounded-full px-6 py-3 bg-white text-[#111] text-xs font-medium inline-flex items-center gap-2 cursor-pointer hover:bg-neutral-200 transition-colors pointer-events-auto"
             >
               + Create scene
@@ -440,7 +460,7 @@ export function SceneLibrary({
                           </h1>
                           <button
                             type="button"
-                            onClick={handleCreateScene}
+                            onClick={openCreateDialog}
                             className="appearance-none border border-white/20 rounded-full px-3 py-1.5 bg-[#242424] text-white text-xs font-medium inline-flex items-center gap-1.5 cursor-pointer hover:bg-[#3a3a3a] transition-colors"
                           >
                             + Create scene
@@ -527,6 +547,82 @@ export function SceneLibrary({
           <p className="rounded-full border border-[#303038] bg-[#1a1a1f]/90 px-4 py-2 font-mono text-[11px] text-[#85858e] shadow-md backdrop-blur-md">
             Scroll to browse · Click a scene to play
           </p>
+        </div>
+      )}
+
+      {isCreating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200 pointer-events-auto">
+          <div className="w-full max-w-md rounded-2xl border border-[#303038] bg-[#1a1a1f] p-6 text-[#f1f1f4] shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-[#303038] pb-4">
+              <div>
+                <h2 className="text-lg font-semibold text-white">Create new scene</h2>
+                <p className="text-xs text-[#85858e] mt-1">Name your scene. Seene will generate the recipe and component files in your project.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setIsCreating(false); setCreateError(""); }}
+                className="text-[#85858e] hover:text-white text-sm p-1 cursor-pointer"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateSubmit} className="space-y-4">
+              <div>
+                <label htmlFor="seene-create-title" className="block text-xs font-medium text-[#85858e] uppercase tracking-wider mb-2">
+                  Scene Title
+                </label>
+                <input
+                  id="seene-create-title"
+                  type="text"
+                  required
+                  autoFocus
+                  placeholder="e.g. Dashboard Showcase"
+                  value={createTitle}
+                  onChange={(e) => setCreateTitle(e.target.value)}
+                  className="w-full rounded-lg border border-[#303038] bg-[#111114] px-4 py-2.5 text-sm text-[#f1f1f4] placeholder-[#55555d] focus:border-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="seene-create-desc" className="block text-xs font-medium text-[#85858e] uppercase tracking-wider mb-2">
+                  Description <span className="text-[#55555d] font-normal">(optional)</span>
+                </label>
+                <input
+                  id="seene-create-desc"
+                  type="text"
+                  placeholder="e.g. A cinematic overview of the analytics panel"
+                  value={createDescription}
+                  onChange={(e) => setCreateDescription(e.target.value)}
+                  className="w-full rounded-lg border border-[#303038] bg-[#111114] px-4 py-2.5 text-sm text-[#f1f1f4] placeholder-[#55555d] focus:border-white focus:outline-none"
+                />
+              </div>
+
+              {createError && (
+                <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400" role="alert">
+                  {createError}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setIsCreating(false); setCreateError(""); }}
+                  className="rounded-lg border border-[#303038] px-4 py-2 text-xs font-medium text-[#85858e] hover:border-[#55555d] hover:text-white transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={createSubmitting || !createTitle.trim()}
+                  className="rounded-lg bg-white px-5 py-2 text-xs font-medium text-[#111114] hover:bg-neutral-200 disabled:opacity-50 transition-colors cursor-pointer"
+                >
+                  {createSubmitting ? "Creating..." : "Create scene"}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </main>

@@ -1,12 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { readRoute, type Route } from "./api";
 
-/** SOURCE OF TRUTH: useHashRoute, useResource.
- * WHAT: read the platform's hash route and load platform data into explicit loading, data and error states.
- * WHY: the product surface needs predictable navigation and exactly one data path per view.
- * WHERE: src/platform views use these hooks.
- */
-
 export function useHashRoute(): Route {
   const [route, setRoute] = useState<Route>(() => readRoute(typeof window === "undefined" ? "" : window.location.hash));
   useEffect(() => {
@@ -17,9 +11,6 @@ export function useHashRoute(): Route {
   return route;
 }
 
-/**
- * `key` is the only reload trigger, so callers may pass a fresh closure on every render without refetching.
- */
 export function useResource<T>(key: string, load: () => Promise<T>) {
   const loader = useRef(load);
   loader.current = load;
@@ -37,4 +28,3 @@ export function useResource<T>(key: string, load: () => Promise<T>) {
   }, [key, tick]);
   return { ...state, reload };
 }
-
