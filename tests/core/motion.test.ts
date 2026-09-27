@@ -179,16 +179,21 @@ describe("explicit scene time motion", () => {
     );
   });
 
-  it("preserves strictly positive bounds even for the smallest finite value", () => {
+  it("accepts the minimum supported scale and reports values below the schema bound", () => {
     const state = evaluateMotion(
       motion([
-        track(surface, "scale", Number.MIN_VALUE, Number.MIN_VALUE),
-        track({ kind: "focus" }, "distance", Number.MIN_VALUE, Number.MIN_VALUE),
+        track(surface, "scale", 0.0001, 0.0001),
+        track({ kind: "focus" }, "distance", 10, 10),
       ]),
       500,
     );
-    expect(state.surfaces.panel.scale).toBe(Number.MIN_VALUE);
-    expect(state.focus.distance).toBe(Number.MIN_VALUE);
+    expect(state.surfaces.panel.scale).toBe(0.0001);
+    expect(state.focus.distance).toBe(10);
+
+    const invalid = expectInvalid(
+      motion([track(surface, "scale", Number.MIN_VALUE, Number.MIN_VALUE)]),
+    );
+    expect(invalid.some((issue) => issue.path.includes("keyframes"))).toBe(true);
   });
 });
 

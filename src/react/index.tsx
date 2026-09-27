@@ -168,8 +168,8 @@ export function Scene({
       <ParentContext.Provider value={undefined}>
         <div
           className={className}
-          data-flute-scene=""
-          data-flute-valid={result.evaluation.issues.length===0 ? "true" : "false"}
+          data-seene-scene=""
+          data-seene-valid={result.evaluation.issues.length===0 ? "true" : "false"}
           style={{
             ...style,
             background: SCENE_BACKGROUND,
@@ -184,7 +184,7 @@ export function Scene({
         >
           <div
             ref={stage}
-            data-flute-stage=""
+            data-seene-stage=""
             style={{
               position: "relative",
               pointerEvents: "none",
@@ -199,8 +199,8 @@ export function Scene({
           </div>
         </div>
         {result.evaluation.issues.length > 0 && (
-          <div role="alert" data-flute-diagnostics="">
-            <strong>Flute scene needs a correction.</strong>
+          <div role="alert" data-seene-diagnostics="">
+            <strong>Seene scene needs a correction.</strong>
             <ul>
               {result.evaluation.issues.map((issue, index) => (
                 <li key={index}>
@@ -227,14 +227,14 @@ export function Surface({
   className,
   style,
 }: SurfaceProps) {
-  const filterId = "flute-focus-" + useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  const filterId = "seene-focus-" + useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const context = useContext(SceneContext);
   const parent = useContext(ParentContext);
-  const [token] = useState(() => Symbol("flute-binding"));
+  const [token] = useState(() => Symbol("seene-binding"));
   const element = useRef<HTMLDivElement>(null);
   if (!context)
     throw new Error(
-      "Surface and Motion must be rendered inside a Flute Scene.",
+      "Surface and Motion must be rendered inside a Seene Scene.",
     );
   const { registry, nodes, transforms } = context;
   useLayout(() => {
@@ -258,12 +258,15 @@ export function Surface({
     node.height > 0 &&
     node.focus.maxBlur > 0 &&
     (content !== undefined || !grouped);
-  const uniformBlur = filtering ? uniformFocusBlur(node.focus, node.width, node.height) : 0;
+  const uniformBlur = filtering ? uniformFocusBlur(node.focus, Math.max(node.width, node.height)) : 0;
   const leafStyle: CSSProperties = {
     pointerEvents: style?.pointerEvents ?? "auto",
     opacity: context.opacities.get(id) ?? 1,
-    filter: !filtering || uniformBlur === 0 ? "none"
-      : uniformBlur !== undefined ? `blur(${uniformBlur}px)` : `url(#${filterId})`,
+    ...(filtering && uniformBlur !== 0 && uniformBlur !== undefined
+      ? { filter: `blur(${uniformBlur}px)` }
+      : filtering && uniformBlur === undefined
+      ? { filter: `url(#${filterId})` }
+      : {}),
   };
   return (
     <ParentContext.Provider value={token}>
@@ -271,35 +274,35 @@ export function Surface({
       <div
         ref={element}
         className={className}
-        data-flute-id={id}
-        data-flute-blur={blur}
-        data-flute-depth={node?.worldPosition.z ?? 0}
+        data-seene-id={id}
+        data-seene-blur={blur}
+        data-seene-depth={node?.worldPosition.z ?? 0}
         style={{
           ...style,
           position: style?.position ?? "relative",
           transform: transformToCss(transforms.get(id)),
           transformOrigin: "50% 50%",
           transformStyle: "preserve-3d",
-          filter: "none",
           opacity: 1,
           overflow: "visible",
           pointerEvents: "none",
+          filter: style?.filter ?? "none",
         }}
       >
         {content !== undefined && (
-          <div data-flute-content="" style={leafStyle}>
+          <div data-seene-content="" style={leafStyle}>
             {content}
           </div>
         )}
         <div
-          data-flute-content={
+          data-seene-content={
             content === undefined && !grouped ? "" : undefined
           }
           style={{
             transformStyle: "preserve-3d",
             ...(content === undefined && !grouped
               ? leafStyle
-              : { filter: "none", pointerEvents: "none" }),
+              : { pointerEvents: "none", filter: "none" }),
           }}
         >
           {children}
@@ -311,7 +314,7 @@ export function Surface({
 
 export function useSceneTime(): number {
   const context = useContext(SceneContext);
-  if (!context) throw new Error("useSceneTime requires a Flute Scene.");
+  if (!context) throw new Error("useSceneTime requires a Seene Scene.");
   return context.timeMs;
 }
 export const Motion = Surface;
@@ -334,8 +337,8 @@ export function SceneErrorBoundary({ children, resetKey, onError, onReset }: Sce
 function SceneErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
   const message = error instanceof Error ? error.message : String(error);
   return (
-    <div role="alert" data-flute-error="">
-      <strong>Unable to render the Flute scene.</strong>
+    <div role="alert" data-seene-error="">
+      <strong>Unable to render the Seene scene.</strong>
       <p>{message}</p>
       <p>Correct the component or scene configuration, then retry.</p>
       <button type="button" onClick={resetErrorBoundary}>

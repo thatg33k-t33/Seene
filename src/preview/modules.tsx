@@ -1,4 +1,5 @@
-import { useEffect, useState, type ComponentType } from "react";
+import { useEffect, useState, type ComponentType, type ReactNode } from "react";
+import type { SceneIssue } from "../core";
 import { SceneLibrary } from "./SceneLibrary";
 import { usePreviewConnection, type PreviewHot } from "./connection";
 
@@ -8,66 +9,89 @@ export function SceneModuleLibrary({
   modules,
   hot,
   backHref,
+  hostContent,
 }: {
   modules: SceneModules;
   hot?: PreviewHot;
   backHref?: string;
+  hostContent?: ReactNode;
 }) {
   const connection = usePreviewConnection(hot, pause);
-  const [retry, setRetry] = useState(0);
   const [state, setState] = useState<{
     sources: Record<string, unknown>;
-    bindings: Record<string, ComponentType>;
-    error?: string;
+    bindings: Record<string, ComponentType<{ children?: ReactNode }>>;
+    issues: SceneIssue[];
   } | null>(null);
   useEffect(() => {
     let active = true;
     const load = async () => {
       const sources: Record<string, unknown> = {};
-      const bindings: Record<string, ComponentType> = {};
-      try {
-        const entries = Object.entries(modules);
-        if (entries.length > 256)
-          throw new Error(
-            "Keep this library at or below 128 scene/component pairs.",
-          );
-        const results = await Promise.allSettled(
-          entries.map(async ([path, loader]) => {
+      const bindings: Record<string, ComponentType<{ children?: ReactNode }>> = {};
+      const issues: SceneIssue[] = [];
+      const entries = Object.entries(modules);
+      if (entries.length > 256) {
+        if (active)
+          setState({
+            sources,
+            bindings,
+            issues: [
+              {
+                path: "catalog",
+                message: "Keep this library at or below 128 scene/component pairs.",
+              },
+            ],
+          });
+        return;
+      }
+      await Promise.all(
+        entries.map(async ([path, loader]) => {
+          const normalized = path.replace(/^\//, "");
+          try {
             const value = await loader();
             const item =
               value && typeof value === "object" && "default" in value
                 ? value.default
                 : undefined;
-            const normalized = path.replace(/^\//, "");
-            if (path.endsWith(".scene.json")) sources[normalized] = item;
-            else if (
-              /\.[jt]sx$/.test(path) &&
-              (typeof item === "function" ||
-                (typeof item === "object" && item !== null))
-            )
-              bindings[normalized] = item as ComponentType;
-          }),
-        );
-        const failed = results.find((result) => result.status === "rejected");
-        if (failed?.status === "rejected") throw failed.reason;
-        if (active) setState({ sources, bindings });
-      } catch (error) {
-        if (active)
-          setState({
-            sources,
-            bindings,
-            error:
-              error instanceof Error
-                ? error.message
-                : "Scene source could not be loaded.",
-          });
-      }
+            if (path.endsWith(".scene.json")) {
+              if (item === undefined) {
+                issues.push({
+                  path: normalized,
+                  message: "Recipe module has no default export.",
+                });
+              } else {
+                sources[normalized] = item;
+              }
+            } else if (/\.[jt]sx$/.test(path)) {
+              if (
+                typeof item === "function" ||
+                (typeof item === "object" && item !== null)
+              ) {
+                bindings[normalized] = item as ComponentType<{ children?: ReactNode }>;
+              } else {
+                issues.push({
+                  path: normalized,
+                  message: "Scene component module must default-export a React component.",
+                });
+              }
+            }
+          } catch (error) {
+            issues.push({
+              path: normalized,
+              message:
+                error instanceof Error
+                  ? error.message
+                  : "Scene module could not be loaded.",
+            });
+          }
+        }),
+      );
+      if (active) setState({ sources, bindings, issues });
     };
     void load();
     return () => {
       active = false;
     };
-  }, [modules, retry, connection.generation]);
+  }, [modules, connection.generation]);
   if (!state)
     return (
       <div
@@ -78,32 +102,13 @@ export function SceneModuleLibrary({
       </div>
     );
   return (
-    <>
-      <SceneLibrary
-        sources={state.sources}
-        bindings={state.bindings}
-        hot={hot}
-        backHref={backHref}
-      />
-      {state.error && (
-        <aside
-          role="alert"
-          style={{
-            position: "fixed",
-            zIndex: 20,
-            bottom: 60,
-            left: 24,
-            right: 24,
-            padding: 24,
-            borderRadius: 20,
-            background: "#252529",
-            color: "#fff",
-          }}
-        >
-          Correct the scene source: {state.error}{" "}
-          <button onClick={() => setRetry((value) => value + 1)}>Retry</button>
-        </aside>
-      )}
-    </>
+    <SceneLibrary
+      sources={state.sources}
+      bindings={state.bindings}
+      sourceIssues={state.issues}
+      hostContent={hostContent}
+      hot={hot}
+      backHref={backHref}
+    />
   );
 }

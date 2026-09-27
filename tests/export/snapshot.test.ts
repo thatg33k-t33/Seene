@@ -12,12 +12,12 @@ const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAA
 let root:string;let source:string;let original:string;
 const snapshot=vi.fn(),close=vi.fn();
 beforeEach(async()=>{
- vi.clearAllMocks();root=await mkdtemp(path.join(tmpdir(),'flute-snapshot-'));await mkdir(path.join(root,'src/flute/scenes'),{recursive:true});source=path.join(root,'src/flute/scenes/demo.scene.json');
- original=JSON.stringify({version:1,id:'demo',title:'My unchanged title',definition:{width:1000,height:600,scene:{nodes:[]}}});await writeFile(source,original);
- const catalog=loadSceneRecipes({sources:[{path:'src/flute/scenes/demo.scene.json',document:JSON.parse(original)}],bindingPaths:['src/flute/scenes/demo.tsx'],sceneId:'demo'});
- vi.mocked(executeRecipeCommand).mockResolvedValue({success:true,data:{...catalog,url:'http://127.0.0.1:5173/?flute-scene=demo'}});
+ vi.clearAllMocks();root=await mkdtemp(path.join(tmpdir(),'seene-snapshot-'));await mkdir(path.join(root,'src/seene/scenes'),{recursive:true});source=path.join(root,'src/seene/scenes/demo.scene.json');
+ original=JSON.stringify({version:1,id:'demo',title:'My unchanged title',definition:{width:1000,height:600,scene:{nodes:[{id:'host'}]}}});await writeFile(source,original);
+ const catalog=loadSceneRecipes({sources:[{path:'src/seene/scenes/demo.scene.json',document:JSON.parse(original)}],bindingPaths:['src/seene/scenes/demo.tsx'],sceneId:'demo'});
+ vi.mocked(executeRecipeCommand).mockResolvedValue({success:true,data:{...catalog,url:'http://127.0.0.1:5173/?seene-scene=demo'}});
  snapshot.mockResolvedValue(png);
- vi.mocked(openCapture).mockResolvedValue({close,manifest:async()=>({version:1,durationMs:1000,selector:'[data-flute-capture="scene"]'}),snapshot,encode:vi.fn()} as Awaited<ReturnType<typeof openCapture>>);
+ vi.mocked(openCapture).mockResolvedValue({close,manifest:async()=>({version:1,durationMs:1000,selector:'[data-seene-capture="scene"]'}),snapshot,encode:vi.fn()} as Awaited<ReturnType<typeof openCapture>>);
 });
 afterEach(async()=>{await rm(root,{recursive:true,force:true})});
 const run=(input={})=>executeSceneSnapshot({sceneId:'demo',url:'http://127.0.0.1:5173',...input},{root});
@@ -44,7 +44,7 @@ it('refuses symlinked source and preserves its external target',async()=>{
  expect((await run()).success).toBe(false);expect(await readFile(external,'utf8')).toBe(original);expect(openCapture).not.toHaveBeenCalled();
 });
 it('supports static scenes and rejects executable or remote image metadata',async()=>{
- vi.mocked(openCapture).mockResolvedValue({close,manifest:async()=>({version:1,durationMs:0,selector:'[data-flute-capture="scene"]'}),snapshot,encode:vi.fn()} as Awaited<ReturnType<typeof openCapture>>);
+ vi.mocked(openCapture).mockResolvedValue({close,manifest:async()=>({version:1,durationMs:0,selector:'[data-seene-capture="scene"]'}),snapshot,encode:vi.fn()} as Awaited<ReturnType<typeof openCapture>>);
  expect(await run()).toMatchObject({success:true,data:{timeMs:0}});
  for(const image of ['https://example.com/a.png','data:image/svg+xml,<svg/>','javascript:alert(1)','data:image/png;base64,broken'])expect(SceneSnapshotSchema.safeParse({image,timeMs:0}).success).toBe(false);
  expect(SnapshotSceneSchema.safeParse({sceneId:'demo',url:'http://user:password@localhost'}).success).toBe(false);

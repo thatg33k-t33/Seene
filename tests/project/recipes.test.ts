@@ -9,10 +9,10 @@ import { loadSceneRecipes } from "../../src/core/recipes";
 import { runCli } from "../../src/cli";
 
 const roots: string[] = [];
-const directory = "src/flute/scenes";
+const directory = "src/seene/scenes";
 const recipe = (id = "demo") => ({ version: 1, id, title: id, definition: { scene: { nodes: [{ id: "panel" }], focus: { distance: 1800 } }, motion: { durationMs: 200, tracks: [] } } });
 async function root() {
-  const value = await mkdtemp(path.join(tmpdir(), "flute-recipes-"));
+  const value = await mkdtemp(path.join(tmpdir(), "seene-recipes-"));
   roots.push(value);
   return value;
 }
@@ -63,33 +63,39 @@ describe("scoped recipe commands", () => {
     expect(await executeRecipeCommand("load-scene", { sceneId: "../demo" }, { root: value })).toMatchObject({ success: false });
     expect(scan).not.toHaveBeenCalled();
   });
-  it.each(["demo.scene.json", "demo.tsx"])("rejects symlinked %s while preserving another scene", async target => {
+  it.each(["demo.scene.json", "demo.tsx"])("does not follow symlinked %s while preserving another scene", async target => {
     const value = await root(), outside = await root();
     await add(value); await add(value, "valid"); await add(outside);
     await rm(path.join(value, directory, target));
     await symlink(path.join(outside, directory, target), path.join(value, directory, target));
     const result = await executeRecipeCommand("list-scenes", {}, { root: value });
     expect(result).toMatchObject({ success: true, data: { scenes: [{ id: "valid" }] } });
-    expect(JSON.stringify(result)).toContain("Symlinked");
+    if (!result.success) throw new Error("Expected recipe discovery to succeed");
+    expect(result.data.scenes.map(scene => scene.id)).not.toContain("demo");
+    if (target === "demo.tsx")
+      expect(result.data.issues).toEqual(expect.arrayContaining([
+        expect.objectContaining({ path: `${directory}/demo.tsx`, message: expect.stringContaining("needs matching component") }),
+      ]));
   });
   it("denies a symlinked recipe directory and traversal through scoped services", async () => {
     const value = await root(), outside = await root();
     await add(outside);
-    await mkdir(path.join(value, "src/flute"), { recursive: true });
+    await mkdir(path.join(value, "src/seene"), { recursive: true });
     await symlink(path.join(outside, directory), path.join(value, directory));
     expect(await executeRecipeCommand("list-scenes", {}, { root: value })).toMatchObject({ success: false });
     await expect(services.scanDirectory(value, "../outside", 10)).rejects.toMatchObject({ code: "denied-path" });
   });
-  it("bounds directory discovery and rejects directory-shaped component bindings", async () => {
+  it("caps discovery and rejects directory-shaped component bindings", async () => {
     const value = await root();
     await add(value);
     await rm(path.join(value, directory, "demo.tsx"));
     await mkdir(path.join(value, directory, "demo.tsx"));
     expect(await executeRecipeCommand("load-scene", { sceneId: "demo" }, { root: value })).toMatchObject({ success: false });
-    await Promise.all(Array.from({ length: 255 }, (_, i) => put(value, `${directory}/filler-${i}`, "")));
+    await Promise.all(Array.from({ length: 260 }, (_, i) => put(value, `${directory}/filler-${i}`, "")));
+    const entries = await services.scanDirectory(value, directory, 256);
+    expect(entries).toHaveLength(256);
     const result = await executeRecipeCommand("list-scenes", {}, { root: value });
-    expect(result).toMatchObject({ success: false });
-    expect(JSON.stringify(result)).toContain("256 entries");
+    expect(result.success).toBe(true);
   });
   it("rejects malformed scope and unknown fields before effects", async () => {
     const canonical = vi.spyOn(services, "canonicalRoot");
@@ -99,12 +105,12 @@ describe("scoped recipe commands", () => {
   });
   it("opens only the selected final URL after canonical preview verification", async () => {
     const value = await root(); await add(value);
-    const execute = vi.spyOn(commands, "executeProjectCommand").mockResolvedValue({ success: true, data: { url: "http://127.0.0.1:5173/?flute-preview=1" } });
+    const execute = vi.spyOn(commands, "executeProjectCommand").mockResolvedValue({ success: true, data: { url: "http://127.0.0.1:5173/?seene-preview=1" } });
     const browser = vi.spyOn(services, "openBrowser").mockResolvedValue();
     const result = await executeRecipeCommand("open-scene", { sceneId: "demo", url: "http://127.0.0.1:5173" }, { root: value });
     expect(execute).toHaveBeenCalledWith("open-preview", { url: "http://127.0.0.1:5173", launch: false }, { root: await services.canonicalRoot(value) });
-    expect(result).toMatchObject({ success: true, data: { selected: { id: "demo" }, url: "http://127.0.0.1:5173/?flute-preview=1&flute-scene=demo" } });
-    expect(browser).toHaveBeenCalledExactlyOnceWith(await services.canonicalRoot(value), "http://127.0.0.1:5173/?flute-preview=1&flute-scene=demo");
+    expect(result).toMatchObject({ success: true, data: { selected: { id: "demo" }, url: "http://127.0.0.1:5173/?seene-preview=1&seene-scene=demo" } });
+    expect(browser).toHaveBeenCalledExactlyOnceWith(await services.canonicalRoot(value), "http://127.0.0.1:5173/?seene-preview=1&seene-scene=demo");
     browser.mockClear();
     await executeRecipeCommand("open-scene", { sceneId: "demo", url: "http://127.0.0.1:5173", launch: false }, { root: value });
     expect(browser).not.toHaveBeenCalled();
@@ -131,10 +137,10 @@ describe("scene CLI adapter", () => {
   });
   it("routes open through the fifth executor without changing existing injection positions", async () => {
     const execute = vi.fn(), exporter = vi.fn();
-    const recipes = vi.fn().mockResolvedValue({ success: true, data: { scenes: [], issues: [], url: "http://localhost:6211/?flute-preview=1&flute-scene=demo" } });
+    const recipes = vi.fn().mockResolvedValue({ success: true, data: { scenes: [], issues: [], url: "http://localhost:6211/?seene-preview=1&seene-scene=demo" } });
     const result = await runCli(["open", "--scene", "demo", "--project", "/host", "--no-open"], { root: "/default", port: "6211" }, execute, exporter, recipes);
     expect(recipes).toHaveBeenCalledWith("open-scene", { sceneId: "demo", url: "http://127.0.0.1:6211", launch: false }, { root: "/host" });
-    expect(result.stdout).toContain("flute-scene=demo");
+    expect(result.stdout).toContain("seene-scene=demo");
     expect(execute).not.toHaveBeenCalled(); expect(exporter).not.toHaveBeenCalled();
   });
   it.each([["scenes", "--url", "http://localhost"], ["scenes", "--scene", "demo"], ["validate", "--scene", "demo"], ["load", "--scene"], ["open", "--scene", "demo", "--scene", "other"]])("rejects invalid scene flags %j", async (...args) => {

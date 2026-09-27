@@ -8,7 +8,7 @@ import { ProjectPreview } from "../../src/preview";
 let resize: () => void;
 let width = 1000;
 beforeEach(() => {
-  window.history.replaceState({}, "", "/app?flute-preview=1");
+  window.history.replaceState({}, "", "/app?seene-preview=1");
   width = 1000;
   vi.stubGlobal("ResizeObserver", class {
     constructor(callback: ResizeObserverCallback) {
@@ -21,7 +21,7 @@ beforeEach(() => {
   vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(() => width);
   vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(600);
   vi.spyOn(HTMLElement.prototype, "offsetParent", "get").mockImplementation(function (this: HTMLElement) {
-    return this.parentElement?.closest("[data-flute-stage]") ?? null;
+    return this.parentElement?.closest("[data-seene-stage]") ?? null;
   });
 });
 afterEach(() => {
@@ -31,10 +31,10 @@ afterEach(() => {
 });
 
 it.each([
-  [false, "?flute-preview=1"],
+  [false, "?seene-preview=1"],
   [true, ""],
-  [true, "?flute-preview=0"],
-  [true, "?flute-preview=true"],
+  [true, "?seene-preview=0"],
+  [true, "?seene-preview=true"],
 ])("returns only the original host when enabled=%s and query=%s", (enabled, query) => {
   window.history.replaceState({}, "", "/app" + query);
   const view = render(<ProjectPreview projectId="host" enabled={enabled}><button>Original</button></ProjectPreview>);
@@ -59,20 +59,20 @@ it("uses canonical camera and progressive focus while preserving host context, e
   const button = screen.getByRole("button", {name: /API data:/});
   fireEvent.click(button);
   expect(button.textContent).toBe("API data: 1");
-  expect(document.querySelectorAll("[data-flute-scene]")).toHaveLength(1);
-  expect(document.querySelectorAll("[data-flute-id]")).toHaveLength(1);
+  expect(document.querySelectorAll("[data-seene-scene]")).toHaveLength(1);
+  expect(document.querySelectorAll("[data-seene-id]")).toHaveLength(1);
   const camera = { perspective: 1800, rotateX: 4, rotateY: -7 };
   const focus = { distance:1800, fStop:8, maxBlur:6 };
-  const expected = evaluateScene({ camera, focus, nodes: [{ id: "flute-application" }] }, {
-    "flute-application": { width, height: 600, offsetX: 0, offsetY: 0 },
+  const expected = evaluateScene({ camera, focus, nodes: [{ id: "seene-application" }] }, {
+    "seene-application": { width, height: 600, offsetX: 0, offsetY: 0 },
   });
-  const stage = document.querySelector<HTMLElement>("[data-flute-stage]")!;
-  const surface = document.querySelector<HTMLElement>("[data-flute-id]")!;
+  const stage = document.querySelector<HTMLElement>("[data-seene-stage]")!;
+  const surface = document.querySelector<HTMLElement>("[data-seene-id]")!;
   expect(stage.style.transform).toBe(cameraToCss(camera));
   expect(stage.parentElement!.style.perspective).toBe("1800px");
-  expect(Number(surface.dataset.fluteBlur)).toBe(expected.nodes[0].blur);
-  expect(surface.querySelector<HTMLElement>("[data-flute-content]")!.style.filter).toMatch(/^url\(#flute-focus-/);
-  expect(document.querySelector("feGaussianBlur")).not.toBeNull();
+  expect(Number(surface.dataset.seeneBlur)).toBe(expected.nodes[0].blur);
+  const expectedBlur = expected.nodes[0].blur;
+  expect(surface.querySelector<HTMLElement>("[data-seene-content]")!.style.filter).toBe(expectedBlur > 0 ? `blur(${expectedBlur}px)` : "");
   expect(screen.queryByRole("alert")).toBeNull();
   view.rerender(app("renamed-host", "Updated API data"));
   width = 390;
@@ -80,17 +80,17 @@ it("uses canonical camera and progressive focus while preserving host context, e
   expect(screen.getByRole("button", {name: /API data:/})).toBe(button);
   expect(button.textContent).toBe("Updated API data: 1");
   expect(requestData).toHaveBeenCalledTimes(1);
-  expect(document.querySelector("[data-flute-project]")!.getAttribute("data-flute-project")).toBe("renamed-host");
-  expect(document.querySelectorAll("[data-flute-id]")).toHaveLength(1);
+  expect(document.querySelector("[data-seene-project]")!.getAttribute("data-seene-project")).toBe("renamed-host");
+  expect(document.querySelectorAll("[data-seene-id]")).toHaveLength(1);
 });
 
 it("removes only the preview parameter from the back destination", () => {
-  window.history.replaceState({}, "", "/nested/app?tag=a&flute-preview=1&tag=b&name=hello%20world&flute-preview=1#details");
+  window.history.replaceState({}, "", "/nested/app?tag=a&seene-preview=1&tag=b&name=hello%20world&seene-preview=1#details");
   render(<ProjectPreview projectId="host" enabled>App</ProjectPreview>);
   const link = screen.getByRole("link", { name: "Back to app" }) as HTMLAnchorElement;
   const destination = new URL(link.href);
   expect(destination.pathname).toBe("/nested/app");
-  expect(destination.searchParams.has("flute-preview")).toBe(false);
+  expect(destination.searchParams.has("seene-preview")).toBe(false);
   expect(destination.searchParams.getAll("tag")).toEqual(["a", "b"]);
   expect(destination.searchParams.get("name")).toBe("hello world");
   expect(destination.hash).toBe("#details");

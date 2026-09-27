@@ -3,13 +3,11 @@ import {readFile,writeFile} from 'node:fs/promises';
 import path from 'node:path';
 import {expect} from '@playwright/test';
 
-// Exercise the exact example emitted by the installed guide and the independently
-// authored source pair through the existing disposable installed-host workflow.
 export async function verifyAgent({page,host,origin,root,cli,ok,installedGuide}) {
- const handoff=await readFile(path.join(host,'FLUTE.md'),'utf8');
- assert.ok(handoff.includes('npx flute guide --json'));
- assert.ok(handoff.includes('src/flute/scenes'));
- const recipeDirectory=path.join(host,'src/flute/scenes');
+ const handoff=await readFile(path.join(host,'SEENE.md'),'utf8');
+ assert.ok(handoff.includes('pnpm exec seene guide --json'));
+ assert.ok(handoff.includes('src/seene/scenes'));
+ const recipeDirectory=path.join(host,'src/seene/scenes');
  const example=installedGuide.capabilities.example;
  assert.ok(example.componentSource && example.recipe);
  await writeFile(path.join(host,example.recipePath),JSON.stringify(example.recipe));
@@ -23,7 +21,7 @@ export async function verifyAgent({page,host,origin,root,cli,ok,installedGuide})
  await writeFile(path.join(recipeDirectory,`${initial.id}.scene.json`),JSON.stringify(initial));
  await writeFile(path.join(recipeDirectory,`${initial.id}.tsx`),binding);
  await ok('npm',['install','--ignore-scripts','--no-audit','--no-fund','--save-dev','@types/react@19.2.0','@types/react-dom@19.2.0']);
- await ok(process.execPath,['node_modules/typescript/bin/tsc','--noEmit','--strict','--skipLibCheck','--jsx','react-jsx','--moduleResolution','bundler','--module','esnext','--target','es2022','--lib','es2022,dom','--types','vite/client','src/main.tsx',example.componentPath,`src/flute/scenes/${initial.id}.tsx`]);
+ await ok(process.execPath,['node_modules/typescript/bin/tsc','--noEmit','--strict','--skipLibCheck','--jsx','react-jsx','--moduleResolution','bundler','--module','esnext','--target','es2022','--lib','es2022,dom','--types','vite/client','src/main.tsx',example.componentPath,`src/seene/scenes/${initial.id}.tsx`]);
  await ok('npm',['run','build']);
  await ok(process.execPath,[path.join(root,'scripts/check-agent-trial.mjs')],root);
  for(const recipe of [example.recipe,initial]) {
@@ -45,7 +43,7 @@ export async function verifyAgent({page,host,origin,root,cli,ok,installedGuide})
    for(const fraction of [0,.25,.5,.75,1]) {
      await seek.fill(String(Math.round(duration*fraction)));
      await page.screenshot({path:path.join(root,'test-results',`${recipe.id}-${fraction}.png`)});
-     frames.push(await page.locator('[data-flute-scene]').innerHTML());
+     frames.push(await page.locator('[data-seene-capture="scene"]').innerHTML());
    }
    assert.notEqual(frames[0],frames[4],'Canonical scene changes over time');
    assert.equal(await page.evaluate(()=>window.agentHostIdentity===document.querySelector('[data-testid="host-revenue"]')),true);

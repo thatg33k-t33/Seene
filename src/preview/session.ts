@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RESOURCES, motionDuration, type PreviewDefinition, type PreviewDefinitionInput, type SceneIssue } from "../core";
 
-/** SOURCE OF TRUTH: usePreviewSession.
- * WHAT: one presentation cursor, source revision retention and playback lifecycle.
- * WHY: UI and capture seek the same canonical motion clock without remounting host UI.
- * WHERE: ScenePreview owns presentation; core/presentPreview validates source revisions.
- */
+
 export function usePreviewSession(input: PreviewDefinitionInput | undefined, revision: unknown) {
   const result = useMemo(() => input === undefined ? null : RESOURCES["present-preview"](input), [input]);
   const [accepted, setAccepted] = useState<PreviewDefinition | null>(() => result?.valid ? result.definition : null);

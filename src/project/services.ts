@@ -1,20 +1,21 @@
 import {createRequire} from 'node:module';
 import {existsSync} from 'node:fs';
-import {lstat, realpath, readFile, writeFile, mkdir, rm, rename} from 'node:fs/promises';
+import {lstat, realpath, readFile, writeFile, mkdir, rm, rename, link} from 'node:fs/promises';
 import path from 'node:path';
 import {fault} from './errors';
 
-/** SOURCE OF TRUTH: filesystem service boundary.
- * WHAT: all Node fs interactions (scoped path resolution, atomic writes, transactions, dependencies).
- * WHY: commands remain pure logic; services alone touch disk or spawn processes.
- * WHERE: commands.ts calls services; nothing else imports fs/promises or executes node effects.
- */
 export async function canonicalRoot(root: string): Promise<string> {
   return realpath(path.resolve(root));
 }
 
+export function packageManagerUserAgent(): string | undefined {
+  return process.env.npm_config_user_agent;
+}
+
 export function newProjectId(): string {
-  return "proj_" + Math.random().toString(36).slice(2, 11);
+  return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : "00000000-0000-4000-8000-000000000000";
 }
 
 export async function isRegularFile(root: string, target: string): Promise<boolean> {
@@ -34,7 +35,7 @@ export async function scanDirectory(root: string, dir: string, maxEntries = 1000
       const resPath = path.join(current, entry.name);
       const relPath = path.relative(root, resPath).replace(/\\/g, "/");
       if (entry.isDirectory()) {
-        if (entry.name === ".git" || entry.name === ".flute" || entry.name === "node_modules") continue;
+        if (entry.name === ".git" || entry.name === ".seene" || entry.name === "node_modules") continue;
         await walk(resPath);
       } else if (entry.isFile()) {
         results.push(relPath);
@@ -45,11 +46,12 @@ export async function scanDirectory(root: string, dir: string, maxEntries = 1000
   return results;
 }
 
-export async function installPackage(root: string, packageSource: string): Promise<void> {
+export async function installPackage(root: string, packageSource: string, packageManager: "npm" | "pnpm" | "yarn" | "bun"): Promise<void> {
   const { execFile } = await import("node:child_process");
   const { promisify } = await import("node:util");
   const exec = promisify(execFile);
-  await exec("npm", ["install", packageSource], { cwd: root });
+  const command = packageManager === "npm" ? "install" : "add";
+  await exec(packageManager, [command, packageSource], { cwd: root });
 }
 
 export async function scopedPath(root: string, target: string): Promise<string> {
@@ -59,21 +61,26 @@ export async function scopedPath(root: string, target: string): Promise<string> 
   const normalizedAbsolute = path.resolve(absolute);
   if (normalizedAbsolute !== path.resolve(root) && !normalizedAbsolute.startsWith(normalizedRoot))
     throw fault("denied-path", "Entry traversal/protected target " + target, target);
-  const parts = relative.split(path.sep);
-  if (parts.includes(".git") || parts.includes(".flute") || parts.includes("node_modules"))
+  const parts = path.relative(path.resolve(root), normalizedAbsolute).split(path.sep).filter(Boolean);
+  if (parts.includes(".git") || parts.includes("node_modules"))
     throw fault("denied-path", "Entry traversal/protected target " + target, target);
-  const lstatResult = await lstat(absolute).catch(error => {
-    if (error.code === "ENOENT") return undefined;
-    throw error;
-  });
-  if (lstatResult?.isSymbolicLink()) throw fault("denied-path", "Denies symlink targets " + target, target);
+  let current = path.resolve(root);
+  for (const part of parts) {
+    current = path.join(current, part);
+    const entry = await lstat(current).catch(error => {
+      if (error.code === "ENOENT") return undefined;
+      throw error;
+    });
+    if (entry?.isSymbolicLink()) throw fault("denied-path", "Denies symlink targets " + target, target);
+  }
   return absolute;
 }
 export function relativeTarget(target: string): string {
   if (path.isAbsolute(target) || /^(?:\0|[a-zA-Z]:|[/\\])/.test(target))
     throw fault("denied-path", "Expected a project-relative path.", target);
   const normalized = path.normalize(target).replace(/\\/g, "/");
-  if (normalized.startsWith("../") || normalized === "..")
+  if (normalized.startsWith("../") || normalized === ".."
+    || normalized.split("/").some(part => part === ".git" || part === "node_modules"))
     throw fault("denied-path", "Expected a project-relative path.", target);
   return normalized;
 }
@@ -83,7 +90,7 @@ export async function readText(root: string, target: string, maxBytes?: number):
     if (error.code === "ENOENT") return undefined;
     throw error;
   });
-  return text && (maxBytes === undefined || text.length <= maxBytes) ? text : undefined;
+  return text !== undefined && (maxBytes === undefined || text.length <= maxBytes) ? text : undefined;
 }
 export async function readRecipe(root: string, target: string, maxBytes?: number): Promise<string | undefined> {
   return readText(root, target, maxBytes);
@@ -106,6 +113,23 @@ export async function atomicWrite(root: string, target: string, text: string, ex
   const temp = absolute + "." + Math.random().toString(36).slice(2) + ".tmp";
   await mkdir(path.dirname(absolute), { recursive: true });
   await writeFile(temp, text, "utf8");
+  if (expectedBefore === undefined) {
+    try {
+      await link(temp, absolute);
+    } catch (error) {
+      if (error && typeof error === "object" && "code" in error && error.code === "EEXIST")
+        throw fault("conflict", "Target file was created during setup.", target);
+      throw error;
+    } finally {
+      await rm(temp, { force: true });
+    }
+    return;
+  }
+  const currentBeforeReplace = await readText(root, target).catch(() => undefined);
+  if (currentBeforeReplace !== expectedBefore) {
+    await rm(temp, { force: true });
+    throw fault("conflict", "Target file was modified during setup.", target);
+  }
   await rename(temp, absolute);
 }
 export async function fetchText(url: string, timeout = 10_000): Promise<string> {
@@ -143,7 +167,6 @@ export function pause(milliseconds: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, milliseconds));
 }
 
-/** Read-only dependency resolution; hoisted and pnpm-linked packages are not mutation targets. */
 export async function readDependency(root:string,name:string,target="package.json"):Promise<string|undefined> {
   if (!["react","react-dom","@thatg33k/seene"].includes(name)) throw fault("invalid-input","Unknown runtime dependency.");
   relativeTarget(target);

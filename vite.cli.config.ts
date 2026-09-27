@@ -2,7 +2,7 @@ import { builtinModules } from "node:module";
 import { defineConfig } from "vite";
 import manifest from "./package.json";
 export default defineConfig({
-  define: { __FLUTE_VERSION__: JSON.stringify(manifest.version) },
+  define: { __SEENE_VERSION__: JSON.stringify(manifest.version) },
   build: {
     target: "node22",
     outDir: "dist/cli",

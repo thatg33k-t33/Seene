@@ -3,13 +3,10 @@ import { SceneSchema, type SceneIssue } from "./scene";
 import { MotionSchema } from "./motion";
 import { reviewAuthoring } from "./authoring";
 
-/** SOURCE OF TRUTH: PreviewDefinitionSchema, presentPreview.
- * WHAT: validate a source-authored preview revision using existing scene/motion owners.
- * WHY: every preview entry accepts the same data and rejects an invalid revision.
- * WHERE: preview/session retains the last valid revision; React still registers live UI.
- */
 export const PreviewDefinitionSchema = z.strictObject({
-  scene: SceneSchema,
+  scene: SceneSchema.refine(scene => scene.nodes.length > 0, {
+    message: "Preview scenes must contain at least one surface node.",
+  }),
   motion: MotionSchema.optional(),
   width: z.number().finite().positive().max(7680).default(1400),
   height: z.number().finite().positive().max(7680).default(980),

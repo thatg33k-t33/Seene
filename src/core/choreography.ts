@@ -1,10 +1,6 @@
 import { z } from "zod";
 import { MotionTrackSchema, type MotionTrack } from "./motion";
-/** SOURCE OF TRUTH: CascadeSchema, createCascadeTracks.
- * WHAT: ordered depth entrances with overlapping, softly eased settling.
- * WHY: authored scenes and agents share one staircase recipe with an explicit opt-out.
- * WHERE: callers bind existing IDs; MotionSchema owns speed and interpolation.
- */
+
 export const CascadeSchema = z.strictObject({
   items: z.array(z.strictObject({id: z.string().min(1), atMs: z.number().finite().nonnegative().optional()})).min(1),
   cascade: z.boolean().default(true),

@@ -2,18 +2,10 @@ import { z } from "zod";
 import {
   TransformSchema,
   CameraSchema,
-  FocusSchema,
   type SceneIssue,
 } from "./scene";
 
-/** SOURCE OF TRUTH: MotionSchema, evaluateMotion, motionDuration, motionTime, cinematicProgress, cinematicTimeAtProgress, sampleFrameTime, explicit scene time.
- * WHAT: typed motion tracks, target/property validation and deterministic interpolation.
- * WHY: all callers must evaluate the same frame without clocks or mutable playback state.
- * WHERE: core/motion.ts owns motion; core/scene.ts validates merged scene values;
- * React/runtime adapters resolve registered surfaces and consume these partial overrides.
- */
 const finite = z.number().finite();
-// Domain bounds derive from the scene owner. Motion adds only animation policy.
 const SurfaceMotionSchema = TransformSchema.extend({
   opacity: finite.min(0).max(1),
 });
@@ -25,11 +17,15 @@ const CameraMotionSchema = CameraSchema.pick({
   rotateY: true,
   rotateZ: true,
 });
-const FocusMotionSchema = FocusSchema;
+const FocusMotionSchema = z.strictObject({
+  distance: finite.min(1).max(100000).default(1800),
+  fStop: finite.min(0.1).max(128).default(8),
+  focalLength: finite.min(1).max(5000).default(50),
+  maxBlur: finite.min(0).max(32).default(6),
+});
 export const MotionKeyframeSchema = z.strictObject({
   timeMs: finite.nonnegative(),
   value: finite,
-  // Easing applies to the outgoing segment; cinematic has zero endpoint velocity and acceleration.
   easing: z.enum(["linear", "easeInOut", "cinematic"]).default("cinematic"),
 });
 const keyframes = z.array(MotionKeyframeSchema).min(1);
@@ -136,8 +132,6 @@ function interpolate(frames: MotionTrack["keyframes"], timeMs: number): number {
       start.easing === "cinematic" ? cinematicProgress(progress)
         : start.easing === "easeInOut" ? progress * progress * (3 - 2 * progress)
         : progress;
-    // Same-sign deltas preserve positive subnormals; convex weights avoid overflow
-    // when opposite finite extremes make (end.value - start.value) infinite.
     if (
       (start.value >= 0 && end.value >= 0) ||
       (start.value <= 0 && end.value <= 0)
@@ -149,10 +143,6 @@ function interpolate(frames: MotionTrack["keyframes"], timeMs: number): number {
   return frames[frames.length - 1].value;
 }
 
-/** Invalid input yields diagnostics and no overrides; finite time clamps to the scene.
- * Tracks hold their endpoints outside their own keyframe interval. Rotations interpolate
- * numerically in degrees (so authored multi-turn rotations retain their intent).
- */
 export function evaluateMotion(input: unknown, timeMs: number): MotionState {
   const result: MotionState = {
     surfaces: {},
@@ -179,7 +169,6 @@ export function evaluateMotion(input: unknown, timeMs: number): MotionState {
     const value = interpolate(track.keyframes, time);
     if (track.target.kind === "surface") {
       const id = track.target.id;
-      // Own data properties support arbitrary IDs without reading/writing Object.prototype.
       const prior = Object.hasOwn(result.surfaces, id)
         ? result.surfaces[id]
         : {};
@@ -198,9 +187,6 @@ export function evaluateMotion(input: unknown, timeMs: number): MotionState {
   return result;
 }
 
-// Shared timeline conversion: callers supply elapsed presentation milliseconds.
-// Opt-in host animations use motionTime through useSceneTime, so charts and spatial
-// transforms stay synchronized. Exports sample the same elapsed clock as preview.
 export function motionDuration(input: unknown): number {
   const parsed = MotionSchema.safeParse(input);
   return parsed.success ? parsed.data.durationMs / parsed.data.speed : 0;
@@ -214,7 +200,6 @@ export function cinematicProgress(progress: number): number {
   const t = Math.max(0, Math.min(1, progress));
   return t * t * t * (t * (t * 6 - 15) + 10);
 }
-// Inverse of the same monotonic easing law, for timing entrances along a camera rail.
 export function cinematicTimeAtProgress(progress: number): number {
   if (progress <= 0) return 0;
   if (progress >= 1) return 1;
@@ -226,9 +211,6 @@ export function cinematicTimeAtProgress(progress: number): number {
   return (low + high) / 2;
 }
 
-/** Quantize presentation time only when a preview cadence is explicitly chosen.
- * Export still samples its own exact frame times; speed and easing do not change.
- */
 export function sampleFrameTime(elapsedMs:number, fps:number | "native" = "native"):number {
   if(!Number.isFinite(elapsedMs)||elapsedMs<0) throw new Error("Frame time must be finite and nonnegative.");
   if(fps==="native") return elapsedMs;

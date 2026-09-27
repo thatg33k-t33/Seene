@@ -3,10 +3,9 @@ import {writeFile,readFile,access,rename} from 'node:fs/promises';
 import {spawn} from 'node:child_process';
 import path from 'node:path';
 import {expect} from '@playwright/test';
-// Tests mutate only the disposable installed host, never project source or state.
+
 export async function verifyIteration({page,host,origin,server,processes,waitFor,root,originalApp}) {
  const file=name=>path.join(host,'src',name);
- // Match an editor's complete-file save: Vite must never read a truncated module.
  const writeSource=async(name,source)=>{
   const temporary=file(name+'.pending');
   await writeFile(temporary,source);
@@ -18,13 +17,11 @@ export async function verifyIteration({page,host,origin,server,processes,waitFor
  const onConsole=message=>record('console',message.text());
  const onFailure=request=>record('requestfailed',request.url()+': '+request.failure()?.errorText);
  page.on('pageerror',onError);page.on('console',onConsole);page.on('requestfailed',onFailure);
- // Replacing the fixture's module graph is bootstrap, not the HMR behavior under
- // test. Detach the previous app before replacing its provider/component exports.
  await page.goto('about:blank');
- const sceneSource=distance=>`import type {PreviewDefinitionInput} from '@webprodigies/flute';
+ const sceneSource=distance=>`import type {PreviewDefinitionInput} from '@thatg33k/seene';
  export const definition:PreviewDefinitionInput={width:1400,height:980,scene:{camera:{perspective:1800,rotateY:-18},focus:{distance:${distance},fStop:2.8},nodes:[{id:'host'}]},motion:{durationMs:4000,tracks:[{target:{kind:'camera'},property:'x',keyframes:[{timeMs:0,value:-100},{timeMs:4000,value:100}]}]}};`;
  const shell=`import {App as Host,DashboardProvider} from './Host';
- import {Surface} from '@webprodigies/flute';import {ScenePreview} from '@webprodigies/flute/preview';import {definition} from './scene';
+ import {Surface} from '@thatg33k/seene';import {ScenePreview} from '@thatg33k/seene/preview';import {definition} from './scene';
  export {DashboardProvider};const content=<Surface id="host" style={{width:1100,height:850,left:150,top:60}}><Host/></Surface>;
  export function App(){return <ScenePreview title="Existing project" definition={definition} hot={import.meta.hot}>{content}</ScenePreview>}`;
  await writeSource('Host.tsx',originalApp);
@@ -33,7 +30,6 @@ export async function verifyIteration({page,host,origin,server,processes,waitFor
  await page.setViewportSize({width:1440,height:1000});
  try {
   await page.goto(origin);
-  // Network-idle does not imply that Vite's module graph and React have mounted.
   await expect(page.getByText('Revenue: 12840',{exact:true})).toBeVisible();
   await expect(page.getByRole('button',{name:'Play',exact:true})).toBeEnabled();
   await page.reload();
@@ -56,9 +52,9 @@ export async function verifyIteration({page,host,origin,server,processes,waitFor
  await page.evaluate(()=>window.hostIdentity=document.querySelector('[data-testid="host-revenue"]'));
  const seek=page.getByRole('slider',{name:'Scene time'});
  await seek.fill('4000');
- const blur=await page.locator('[data-flute-id="host"]').getAttribute('data-flute-blur');
+ const blur=await page.locator('[data-seene-id="host"]').getAttribute('data-seene-blur');
  await writeSource('scene.ts',sceneSource(1600));
- await expect(page.locator('[data-flute-id="host"]')).not.toHaveAttribute('data-flute-blur',blur);
+ await expect(page.locator('[data-seene-id="host"]')).not.toHaveAttribute('data-seene-blur',blur);
  await expect(seek).toHaveValue('4000');
  await expect(page.getByRole('button',{name:'Inspect 1',exact:true})).toBeVisible();
  assert.equal(await page.evaluate(()=>window.hostIdentity===document.querySelector('[data-testid="host-revenue"]')),true);
@@ -94,7 +90,7 @@ export async function verifyIteration({page,host,origin,server,processes,waitFor
  await expect(page.getByText('Revenue: 12840',{exact:true})).toBeVisible({timeout:20000});
  await expect(page.getByText('Reconnecting to your app…')).toHaveCount(0,{timeout:20000});
  await writeSource('App.tsx',originalApp);
- await expect(page.locator('[data-flute-preview]')).toHaveCount(0);
+ await expect(page.locator('[data-seene-preview]')).toHaveCount(0);
  await expect(page.getByRole('heading',{name:'Existing revenue dashboard'})).toBeVisible();
  for(const directory of ['demo','examples','dist/tests']) {
    let present=true;try{await access(path.join(root,directory))}catch{present=false}
@@ -102,5 +98,5 @@ export async function verifyIteration({page,host,origin,server,processes,waitFor
  }
  const html=await readFile(path.join(root,'dist/index.html'),'utf8');
  assert.ok(!html.includes('/demo/')&&!html.includes('/tests/'));
- console.log('Iteration: installed shell, metadata HMR, schema/syntax/render recovery, state, keyboard/mobile, reconnect and product/test build separation passed.');
+ console.log('Iteration passed.');
 }

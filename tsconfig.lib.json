@@ -16,7 +16,8 @@
     "src/index.ts",
     "src/core",
     "src/react",
-    "src/preview"
+    "src/preview",
+    "src/vite/seene-plugin.ts"
   ],
   "exclude": [
     "demo",

@@ -2,11 +2,7 @@ import {RESOURCES} from "../core/resources";
 import { SCENE_RECIPE_DIRECTORY, type SceneCatalog } from "../core/recipes";
 import type { SceneIssue } from "../core/scene";
 import * as services from "./services";
-/** SOURCE OF TRUTH: discoverRecipes, scoped scene source loading.
- * WHAT: read bounded recipe files and validate through RESOURCES.
- * WHY: CLI and framework catalog generators share exactly one discovery policy.
- * WHERE: recipes and project commands call this operation; services owns all effects.
- */
+
 function diagnostic(error: unknown, target = ""): SceneIssue {
   const known = error instanceof Error && "code" in error && "target" in error;
   return { path: known && typeof error.target === "string" ? error.target : target,

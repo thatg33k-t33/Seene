@@ -53,9 +53,8 @@ export function GettingStarted({ onStartCreating }: GettingStartedProps) {
   };
 
   return (
-    <main className="fixed inset-0 overflow-hidden bg-[#111114] text-[#f1f1f4]">
-      <div className="flex h-full w-full flex-col px-6 sm:px-8">
-        {/* Brand */}
+    <main className="fixed inset-0 overflow-y-auto bg-[#111114] text-[#f1f1f4]">
+      <div className="flex min-h-full w-full flex-col px-6 sm:px-8">
         <header className="flex h-28 shrink-0 items-center justify-between mx-auto">
           <img
             src="/logo-seene.png"
@@ -64,7 +63,6 @@ export function GettingStarted({ onStartCreating }: GettingStartedProps) {
           />
         </header>
 
-        {/* Stable content stage */}
         <div className="flex min-h-0 flex-1 items-center justify-center">
           <div className="w-full max-w-5xl">
             {!started ? (

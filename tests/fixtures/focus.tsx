@@ -4,6 +4,7 @@ import { Scene, Surface } from "../../src/react";
 function Probe() {
   const [x, setX] = useState(0),
     [pan, setPan] = useState(0),
+    [dolly, setDolly] = useState(0),
     [focus, setFocus] = useState(1400),
     [tilt, setTilt] = useState(45);
   return (
@@ -11,12 +12,13 @@ function Probe() {
       <div style={{ position: "absolute", zIndex: 10 }}>
         <button onClick={() => setX(96)}>Move surface</button>
         <button onClick={() => setPan(96)}>Pan camera</button>
-        <button onClick={() => setFocus(1250)}>Move focus</button>
+        <button onClick={() => setDolly(200)}>Dolly camera</button>
+        <button onClick={() => setFocus(1600)}>Move focus</button>
         <button onClick={() => setTilt(0)}>Tilt surface</button>
       </div>
       <Scene
         style={{ width: 800, height: 400 }}
-        camera={{ x: pan }}
+        camera={{ x: pan, z: dolly }}
         focus={{ distance: focus, fStop:1.4, focalLength:150, maxBlur:6 }}
       >
         <Surface

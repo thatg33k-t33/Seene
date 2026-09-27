@@ -13,7 +13,7 @@ const definition: PreviewDefinitionInput = {
     {target: {kind: "camera"}, property: "x", keyframes: [{timeMs: 0, value: 0}, {timeMs: 4000, value: 100}]},
   ]},
 };
-const bridge = () => (window as typeof window & {__FLUTE_CAPTURE__: CaptureBridge}).__FLUTE_CAPTURE__;
+const bridge = () => (window as typeof window & {__SEENE_CAPTURE__: CaptureBridge}).__SEENE_CAPTURE__;
 const controls = () => screen.getByRole("contentinfo", {name: "Scene controls"});
 beforeEach(() => {
   vi.restoreAllMocks();
@@ -65,18 +65,19 @@ it("keeps every preview action in the bottom region and preserves host context, 
   expect(bridge()).toBeDefined();
 });
 
-it("renders the canonical error and retry outside capture in the controls region", () => {
-  const invalid: PreviewDefinitionInput = {
+it("reports duplicate rendered surface IDs in an accessible diagnostic", () => {
+  const valid: PreviewDefinitionInput = {
     width: 800, height: 600,
-    scene: { version: 3, camera: {}, focus: {}, nodes: [{id: "host"}, {id: "host"}] },
+    scene: { version: 3, camera: {}, focus: {}, nodes: [{id: "host"}] },
   };
   render(
-    <ScenePreview definition={invalid} title="Broken app">
-      <Surface id="host"><div /></Surface>
+    <ScenePreview definition={valid} title="Broken app">
+      <>
+        <Surface id="host"><div /></Surface>
+        <Surface id="host"><div /></Surface>
+      </>
     </ScenePreview>,
   );
-  const errorRegion = screen.getByRole("region", {name: "Scene error notice"});
-  expect(errorRegion).toBeTruthy();
-  expect(errorRegion.textContent).toContain("Duplicate scene node ID");
-  expect(screen.getByRole("button", {name: "Retry"})).toBeTruthy();
+  const errorRegion = screen.getByRole("alert");
+  expect(errorRegion.textContent).toContain("Duplicate surface ID: host");
 });

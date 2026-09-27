@@ -21,7 +21,7 @@ if(ci)pending.delete('test:performance');
 await mkdir(new URL('../.release/logs/',import.meta.url),{recursive:true});
 async function run(name,prebuilt=false){
  const result=await new Promise(resolve=>{
-  const child=spawn('npm',['run',name],{cwd:root,env:{...process.env,FLUTE_VERIFY_HARDWARE:ci?'0':'1',...(prebuilt?{FLUTE_VERIFY_PREBUILT:'1'}:{})},stdio:['ignore','pipe','pipe']});
+  const child=spawn('npm',['run',name],{cwd:root,env:{...process.env,SEENE_VERIFY_HARDWARE:ci?'0':'1',...(prebuilt?{SEENE_VERIFY_PREBUILT:'1'}:{})},stdio:['ignore','pipe','pipe']});
   let output='';child.stdout.on('data',value=>output+=value);child.stderr.on('data',value=>output+=value);
   child.on('error',error=>resolve({code:1,output:output+error.message}));child.on('close',code=>resolve({code,output}));
  });

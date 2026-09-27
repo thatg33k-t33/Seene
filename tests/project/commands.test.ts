@@ -16,7 +16,7 @@ const original = `import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { Provider } from "./Provider";
 import App from "./App";
-// Keep this provider and all application state.
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode><Provider tenant="local"><App /></Provider></StrictMode>,
 );
@@ -26,7 +26,7 @@ async function put(root: string, file: string, text: string) {
   await writeFile(path.join(root, file), text);
 }
 async function fixture(options: { installed?: boolean; source?: string } = {}) {
-  const root = await mkdtemp(path.join(tmpdir(), "flute-project-"));
+  const root = await mkdtemp(path.join(tmpdir(), "seene-project-"));
   roots.push(root);
   await put(root, "package.json", JSON.stringify({ name: "host", scripts: { dev: "vite" },
     dependencies: { react: "^19.2.0", "react-dom": "^19.2.0", ...(options.installed === false ? {} : { "@thatg33k/seene": "0.1.0" }) },
@@ -59,7 +59,9 @@ function success(result: ProjectResult) {
 }
 function failure(result: ProjectResult, code: string) {
   expect(ProjectResultSchema.safeParse(result).success).toBe(true);
-  expect(result).toMatchObject({ success: false, issues: [{ code }] });
+  expect(result.success).toBe(false);
+  if (result.success) throw new Error("Expected project operation to fail.");
+  expect(result.issues.some(issue => issue.code === code)).toBe(true);
 }
 async function server(body: (url: string) => { status?: number; headers?: Record<string, string>; text?: string }) {
   const app = createServer((req, res) => {
@@ -86,14 +88,47 @@ afterEach(async () => {
 });
 
 describe("project initialization and preview integration", () => {
-  it("recognizes current React refresh injection and Vite timestamped entry", () => {
+  it("keeps Vite's timestamped entry URL separate from host source parsing", () => {
     const id = "36c238cf-44e8-43be-b72a-e5196b075598";
     const adapted = inspectEntry(original, "main.tsx", id);
     expect(adapted.integrated).toBe(true);
-    expect(adapted.text).toContain("FluteProjectPreview");
-    expect(inspectEntry(adapted.text, "main.tsx", id).integrated).toBe(true);
-    const timestamped = original.replace('src/main.tsx', 'src/main.tsx?t=1730000000000');
-    expect(inspectEntry(timestamped, "main.tsx?t=1730000000000", id).integrated).toBe(true);
+    expect(adapted.text).toContain("SeeneProjectPreview");
+    expect(inspectEntry(adapted.text, "main.tsx", id).text).toBe(adapted.text);
+    expect(htmlEntry('<script type="module" src="/src/main.tsx?t=1730000000000"></script>', true)).toBe("src/main.tsx");
+  });
+  it("initializes a pnpm workspace consumer without changing its package metadata or lockfile", async () => {
+    const root = await fixture();
+    const packageFile = path.join(root, "package.json");
+    const packageData = JSON.parse(await readFile(packageFile, "utf8"));
+    packageData.packageManager = "pnpm@10.0.0";
+    packageData.workspaces = ["apps/*"];
+    await writeFile(packageFile, JSON.stringify(packageData));
+    await rm(path.join(root, "package-lock.json"));
+    const lock = "lockfileVersion: '9.0'\\n";
+    await put(root, "pnpm-lock.yaml", lock);
+
+    const result = success(await run(root));
+
+    expect(result.project?.packageManager).toBe("pnpm");
+    expect(JSON.parse(await readFile(packageFile, "utf8"))).toEqual(packageData);
+    expect(await readFile(path.join(root, "pnpm-lock.yaml"), "utf8")).toBe(lock);
+  });
+  it("uses the consumer package manager when installing a local tarball", async () => {
+    const root = await fixture({ installed: false });
+    const packageFile = path.join(root, "package.json");
+    const packageData = JSON.parse(await readFile(packageFile, "utf8"));
+    packageData.packageManager = "pnpm@10.0.0";
+    await writeFile(packageFile, JSON.stringify(packageData));
+    await rm(path.join(root, "package-lock.json"));
+    await put(root, "pnpm-lock.yaml", "lockfileVersion: '9.0'\\n");
+    const tarball = path.join(root, "seene.tgz");
+    await writeFile(tarball, "local package fixture");
+    const install = vi.spyOn(services, "installPackage").mockImplementation(async projectRoot => installFixture(projectRoot));
+
+    const result = success(await run(root, "init-project", { packageSource: "./seene.tgz" }));
+
+    expect(result.project?.packageManager).toBe("pnpm");
+    expect(install).toHaveBeenCalledWith(root, tarball, "pnpm");
   });
   it("waits for an edited entry to reach the existing dev server", async () => {
     const root = await fixture();
@@ -103,14 +138,14 @@ describe("project initialization and preview integration", () => {
       : 'import {ProjectPreview} from "/node_modules/.vite/deps/@thatg33k_seene_preview.js"; const projectId="' + first.project!.projectId + '";' }));
     const open = vi.spyOn(services, "openBrowser").mockResolvedValue();
     const result = success(await run(root, "open-preview", { url, launch: false }));
-    expect(result.url).toBe(url + "/?flute-preview=1");
+    expect(result.url).toBe(url + "/?seene-preview=1");
     expect(open).not.toHaveBeenCalled();
   });
   it("rejects unknown operations and malformed input before any filesystem effect", async () => {
     const root = await fixture();
     failure(await run(root, "unknown-operation"), "invalid-operation");
     failure(await run(root, "open-preview", { url: "not-a-url" }), "invalid-input");
-    expect(await readdir(root)).not.toContain(".flute");
+    expect(await readdir(root)).not.toContain(".seene");
   });
   it("preserves host providers, source/config/env/lock bytes and stays idempotent across all entry operations", async () => {
     const root = await fixture();
@@ -142,50 +177,77 @@ describe("project initialization and preview integration", () => {
     '<script type="module" src="./src/main.tsx"></script>',
     '<script type="module" src="src/main.tsx"></script>',
     '<script type="module" src="/src/main.tsx"></script>',
-  ])("uses a portable connection instead of rewriting ambiguous root syntax", async html => {
+  ])("connects the existing React root for each supported Vite entry URL", async html => {
     const root = await fixture();
     await put(root, "index.html", html);
     const result = success(await run(root));
     expect(result.integration?.kind).toBe("react");
-    expect(await readFile(path.join(root, "src/main.tsx"), "utf8")).toBe(original);
+    const entry = await readFile(path.join(root, "src/main.tsx"), "utf8");
+    expect(entry).toContain("SeeneProjectPreview");
+    expect(entry).toContain('<Provider tenant="local"><App /></Provider>');
+    expect(await readFile(path.join(root, "index.html"), "utf8")).toBe(html);
   });
   it.each([
-    { config: 'import { defineConfig } from "vite"; import react from "@vitejs/plugin-react"; export default defineConfig({ plugins: [react()] });', missing: "react" },
-    { config: 'import { defineConfig } from "vite"; export default defineConfig({});', missing: "vite" },
+    { config: 'import { defineConfig } from "vite"; export default defineConfig({});' },
     { html: '<html><body><script src="/src/main.tsx"></script></body></html>' },
-    { lock: "yarn.lock" },
-    { lock: "pnpm-lock.yaml" },
-    { lock: "bun.lockb" },
-  ])("keeps custom host vite.config.ts intact or rejects a missing React package", async fixtureChanges => {
+    { missing: "vite" },
+  ])("uses an explicit React adapter when automatic Vite setup is unavailable: %j", async fixtureChanges => {
     const root = await fixture();
     if (fixtureChanges.config) await put(root, "vite.config.ts", fixtureChanges.config);
     if (fixtureChanges.missing) {
       const pkg = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
       delete pkg.dependencies[fixtureChanges.missing];
+      delete pkg.devDependencies[fixtureChanges.missing];
       await put(root, "package.json", JSON.stringify(pkg));
     }
     if (fixtureChanges.html) await put(root, "index.html", fixtureChanges.html);
-    if (fixtureChanges.lock) {
-      await rm(path.join(root, "package-lock.json"));
-      await put(root, fixtureChanges.lock, "lock");
-    }
-    const result = await run(root);
-    failure(result, "unsupported-project");
+    const result = success(await run(root));
+    expect(result.project?.adapter).toBe("react");
+    expect(result.integration?.kind).toBe("react");
     expect(await readFile(path.join(root, "src/main.tsx"), "utf8")).toBe(original);
+    expect(await readFile(path.join(root, "src/seene/ProjectPreview.jsx"), "utf8")).toContain("ProjectPreview");
   });
-  it("reports missing package with public installation instructions without mutating the app", async () => {
+  it.each(["react", "react-dom"])("rejects automatic setup without installed host dependency %s", async missing => {
+    const root = await fixture();
+    const pkg = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
+    delete pkg.dependencies[missing];
+    await put(root, "package.json", JSON.stringify(pkg));
+    failure(await run(root), "unsupported-project");
+    expect(await readdir(root)).not.toContain(".seene");
+  });
+  it.each([["yarn.lock", "yarn"], ["bun.lockb", "bun"]] as const)("uses the sole detected package manager from %s", async (lock, manager) => {
+    const root = await fixture();
+    await rm(path.join(root, "package-lock.json"));
+    await put(root, lock, "lock");
+    const result = success(await run(root));
+    expect(result.project?.packageManager).toBe(manager);
+    expect(await readFile(path.join(root, lock), "utf8")).toBe("lock");
+  });
+  it("rejects conflicting package manager lockfiles before setup", async () => {
+    const root = await fixture();
+    await put(root, "pnpm-lock.yaml", "lock");
+    failure(await run(root), "unsupported-project");
+    expect(await readdir(root)).not.toContain(".seene");
+  });
+  it("requires a local Seene package before setup and does not mutate the host app", async () => {
     const root = await fixture({ installed: false });
     const result = await run(root);
-    failure(result, "missing-installation");
-    expect(JSON.stringify(result)).toContain("npm install @thatg33k/seene");
+    failure(result, "package-unavailable");
+    expect(JSON.stringify(result)).toContain("Link the local @thatg33k/seene workspace package");
     expect(await readFile(path.join(root, "src/main.tsx"), "utf8")).toBe(original);
-    expect(await readdir(root)).not.toContain(".flute");
+    expect(await readdir(root)).not.toContain(".seene");
   });
-  it("does not trust a user manifest without installed package or real integration", async () => {
+  it("does not trust a user manifest without a real package integration", async () => {
     const root = await fixture({ installed: false });
-    success(await run(root, "init-project", { adapter: "react" }));
+    await put(root, ".seene/project.json", JSON.stringify({
+      version: 1,
+      projectId: "36c238cf-44e8-43be-b72a-e5196b075598",
+      entry: "src/main.tsx",
+      packageManager: "npm",
+    }));
     const result = await run(root, "load-project");
-    failure(result, "missing-installation");
+    failure(result, "conflict");
+    expect(await readFile(path.join(root, "src/main.tsx"), "utf8")).toBe(original);
   });
   it("checks installed preview export on repeat even when state and wrapper exist", async () => {
     const root = await fixture();
@@ -194,21 +256,24 @@ describe("project initialization and preview integration", () => {
     failure(await run(root, "load-project"), "missing-installation");
   });
   it.each([
-    "../outside.tsx",
-    ".env.tsx",
-    ".git/secret.tsx",
-    "src/../../outside.tsx",
-  ])("denies entry traversal/protected target %s", async target => {
+    ["../outside.tsx", "denied-path"],
+    [".git/secret.tsx", "denied-path"],
+    ["node_modules/entry.tsx", "denied-path"],
+    ["src/../../outside.tsx", "denied-path"],
+    [".env.tsx", "conflict"],
+  ] as const)("rejects unsafe or mismatched entry %s", async (target, code) => {
     const root = await fixture();
-    const result = await run(root, "init-project", { adapter: "react" });
-    const state = JSON.parse(await readFile(path.join(root, ".flute/project.json"), "utf8"));
+    await run(root);
+    const state = JSON.parse(await readFile(path.join(root, ".seene/project.json"), "utf8"));
     state.entry = target;
-    await put(root, ".flute/project.json", JSON.stringify(state));
-    failure(await run(root, "load-project"), "denied-path");
+    await put(root, ".seene/project.json", JSON.stringify(state));
+    failure(await run(root, "load-project"), code);
   });
-  it.each([".flute", "SEENE.md", "src/main.tsx", "package-lock.json", "vite.config.ts"])("denies symlink targets %s before writing", async target => {
+  it.each([".seene", "SEENE.md", "src/main.tsx", "package-lock.json", "vite.config.ts"]) ("denies symlink targets %s before writing", async target => {
     const root = await fixture();
-    await symlink(path.join(root, "index.html"), path.join(root, target));
+    const destination = path.join(root, target);
+    await rm(destination, { recursive: true, force: true });
+    await symlink(path.join(root, "index.html"), destination);
     const result = await run(root);
     failure(result, "denied-path");
     expect(await readFile(path.join(root, "index.html"), "utf8")).toBe('<div id="root"></div><script type="module" src="/src/main.tsx"></script>');
@@ -216,43 +281,43 @@ describe("project initialization and preview integration", () => {
   it("escapes persisted entry paths and dirty project identity", async () => {
     const root = await fixture();
     success(await run(root));
-    const project = JSON.parse(await readFile(path.join(root, ".flute/project.json"), "utf8"));
+    const project = JSON.parse(await readFile(path.join(root, ".seene/project.json"), "utf8"));
     project.projectId = "bad-uuid";
-    await put(root, ".flute/project.json", JSON.stringify(project));
+    await put(root, ".seene/project.json", JSON.stringify(project));
     failure(await run(root, "load-project"), "invalid-file");
   });
   it("resumes failed installation through the same pending identity", async () => {
     const root = await fixture({ installed: false });
-    await put(root, "flute.tgz", "fixture transport only");
+    await put(root, "seene.tgz", "fixture transport only");
     const install = vi.spyOn(services, "installPackage").mockRejectedValueOnce(new Error("interrupted"));
-    failure(await run(root, "init-project", { packageSource: "./flute.tgz" }), "project-error");
-    const firstProject = JSON.parse(await readFile(path.join(root, ".flute/pending.json"), "utf8")).project;
+    failure(await run(root, "init-project", { packageSource: "./seene.tgz" }), "project-error");
+    const firstProject = JSON.parse(await readFile(path.join(root, ".seene/pending.json"), "utf8")).project;
     install.mockImplementation(async project => installFixture(project));
-    const second = success(await run(root, "init-project", { packageSource: "./flute.tgz" }));
+    const second = success(await run(root, "init-project", { packageSource: "./seene.tgz" }));
     expect(second.project).toEqual(firstProject);
-    expect(await readdir(path.join(root, ".flute"))).toEqual(["project.json"]);
+    expect(await readdir(path.join(root, ".seene"))).toEqual(["project.json"]);
   });
   it("resumes an interruption between entry and state writes without duplicate wrapping", async () => {
     const root = await fixture();
     const write = services.atomicWrite;
     vi.spyOn(services, "atomicWrite").mockImplementation(async (...args) => {
-      if (args[1] === ".flute/project.json") throw new Error("interrupted");
+      if (args[1] === ".seene/project.json") throw new Error("interrupted");
       return write(...args);
     });
     failure(await run(root), "project-error");
-    const pendingText = await readFile(path.join(root, ".flute/pending.json"), "utf8");
+    const pendingText = await readFile(path.join(root, ".seene/pending.json"), "utf8");
     const originalMain = await readFile(path.join(root, "src/main.tsx"), "utf8");
     vi.restoreAllMocks();
     success(await run(root));
     expect(await readFile(path.join(root, "src/main.tsx"), "utf8")).toBe(originalMain);
-    expect(JSON.parse(await readFile(path.join(root, ".flute/pending.json"), "utf8"))).toEqual(JSON.parse(pendingText));
-    expect(await readdir(path.join(root, ".flute"))).toEqual(["project.json"]);
+    expect(JSON.parse(pendingText).original).toBe(original);
+    expect(await readdir(path.join(root, ".seene"))).toEqual(["project.json"]);
   });
   it("refuses dirty source after an interrupted write, then recovers when restored", async () => {
     const root = await fixture();
     const write = services.atomicWrite;
     vi.spyOn(services, "atomicWrite").mockImplementation(async (...args) => {
-      if (args[1] === ".flute/project.json") throw new Error("interrupted");
+      if (args[1] === ".seene/project.json") throw new Error("interrupted");
       return write(...args);
     });
     failure(await run(root), "project-error");
@@ -274,10 +339,10 @@ describe("project initialization and preview integration", () => {
       ? '<script type="module" src="/@vite/client"></script><script type="module">import RefreshRuntime from "/@react-refresh";</script><script type="module" src="/src/main.tsx"></script>'
       : 'import {ProjectPreview} from "/node_modules/.vite/deps/@thatg33k_seene_preview.js"; const projectId="' + project.projectId + '";' }));
     const open = vi.spyOn(services, "openBrowser").mockResolvedValue();
-    expect(success(await run(root, "open-preview", { url, launch: false })).url).toBe(url + "/?flute-preview=1");
+    expect(success(await run(root, "open-preview", { url, launch: false })).url).toBe(url + "/?seene-preview=1");
     expect(open).not.toHaveBeenCalled();
     success(await run(root, "open-preview", { url, launch: true }));
-    expect(open).toHaveBeenCalledWith(await services.canonicalRoot(root), url + "/?flute-preview=1");
+    expect(open).toHaveBeenCalledWith(await services.canonicalRoot(root), url + "/?seene-preview=1");
   });
   it.each(["wrong-entry", "wrong-id", "redirect", "too-large", "missing"])("rejects %s dev server without opening a browser", async kind => {
     const root = await fixture();
@@ -289,7 +354,7 @@ describe("project initialization and preview integration", () => {
     const open = vi.spyOn(services, "openBrowser").mockResolvedValue();
     const result = await run(root, "open-preview", { url });
     failure(result, "missing-dev-server");
-    expect(JSON.stringify(result)).toContain("pnpm dev");
+    expect(JSON.stringify(result)).toContain("existing development server");
     expect(open).not.toHaveBeenCalled();
   });
   it("preserves entry directives and refuses type-only React imports", () => {
@@ -308,14 +373,14 @@ describe("project initialization and preview integration", () => {
   });
   it("repairs a partial package install on a pending retry with an explicit tarball", async () => {
     const root = await fixture({ installed: false });
-    await put(root, "flute.tgz", "fixture transport only");
+    await put(root, "seene.tgz", "fixture transport only");
     const install = vi.spyOn(services, "installPackage").mockImplementationOnce(async project => {
       await put(project, "node_modules/@thatg33k/seene/package.json", '{');
       throw new Error("interrupted install");
     });
-    failure(await run(root, "init-project", { packageSource: "./flute.tgz" }), "project-error");
+    failure(await run(root, "init-project", { packageSource: "./seene.tgz" }), "project-error");
     install.mockImplementation(async project => installFixture(project));
-    success(await run(root, "init-project", { packageSource: "./flute.tgz" }));
+    success(await run(root, "init-project", { packageSource: "./seene.tgz" }));
     expect(success(await run(root)).changed).toBe(false);
   });
   it("finishes cleanup after state was committed but journal removal was interrupted", async () => {
@@ -331,8 +396,9 @@ describe("project initialization and preview integration", () => {
     const id = "36c238cf-44e8-43be-b72a-e5196b075598";
     const adapted = inspectEntry(original, "main.tsx", id).text;
     expect(() => inspectEntry(adapted.replace("import.meta.env.DEV", "true"), "main.tsx", id)).toThrow();
-    expect(() => inspectEntry(adapted + "\nconst stolen = FluteProjectPreview;", "main.tsx", id)).toThrow();
-    expect(() => inspectEntry(original + "\nfunction another(createRoot: unknown) {}", "main.tsx", id)).toThrow();
+    expect(() => inspectEntry(adapted + "\nconst stolen = SeeneProjectPreview;", "main.tsx", id)).toThrow();
+    const withUnrelatedFunction = inspectEntry(original + "\nfunction another(createRoot: unknown) {}", "main.tsx", id);
+    expect(withUnrelatedFunction.text).toContain("function another(createRoot: unknown) {}");
   });
 });
 
@@ -357,15 +423,15 @@ describe("installed coding-agent handoff", () => {
     for (const name of ["AGENTS.md", "CLAUDE.md", ".agents/custom.md", ".codex/config.toml"])
       expect(await readFile(path.join(root, name), "utf8")).toBe("user instructions\n");
   });
-  it.each(["# My Flute notes\n", ""])("preserves a pre-existing user SEENE.md before any setup mutation", async content => {
+  it.each(["# My Seene notes\n", ""])("preserves a pre-existing user SEENE.md before any setup mutation", async content => {
     const root = await fixture();
     await put(root, "SEENE.md", content);
     const result = await run(root);
     failure(result, "conflict");
-    expect(JSON.stringify(result)).toContain("Move or rename");
+    expect(JSON.stringify(result)).toContain("preserve your document");
     expect(await readFile(path.join(root, "SEENE.md"), "utf8")).toBe(content);
     expect(await readFile(path.join(root, "src/main.tsx"), "utf8")).toBe(original);
-    expect(await readdir(root)).not.toContain(".flute");
+    expect(await readdir(root)).not.toContain(".seene");
     await rm(path.join(root, "SEENE.md"));
     success(await run(root));
   });
@@ -376,7 +442,7 @@ describe("installed coding-agent handoff", () => {
     await put(root, "SEENE.md", text);
     failure(await run(root), "conflict");
     expect(await readFile(path.join(root, "SEENE.md"), "utf8")).toBe(text);
-    // The handoff is onboarding, not a runtime requirement for existing scenes.
+
     success(await run(root, "load-project"));
   });
   it("adds the handoff to an already initialized app without rewrapping it", async () => {
@@ -397,22 +463,22 @@ describe("installed coding-agent handoff", () => {
       return write(...args);
     });
     failure(await run(root), "project-error");
-    const pending = JSON.parse(await readFile(path.join(root, ".flute/pending.json"), "utf8"));
+    const pending = JSON.parse(await readFile(path.join(root, ".seene/pending.json"), "utf8"));
     vi.restoreAllMocks();
     const result = success(await run(root));
     expect(result.project).toEqual(pending.project);
     expect(result.handoff!.path).toBe("SEENE.md");
     expect(success(await run(root)).changed).toBe(false);
-    expect(await readdir(path.join(root, ".flute"))).toEqual(["project.json"]);
+    expect(await readdir(path.join(root, ".seene"))).toEqual(["project.json"]);
   });
   it("preserves a handoff created by another writer during installation and then recovers", async () => {
     const root = await fixture({ installed: false });
-    await put(root, "flute.tgz", "fixture transport only");
+    await put(root, "seene.tgz", "fixture transport only");
     vi.spyOn(services, "installPackage").mockImplementation(async project => {
       await installFixture(project);
       await put(project, "SEENE.md", "user document created during install");
     });
-    failure(await run(root, "init-project", { packageSource: "./flute.tgz" }), "conflict");
+    failure(await run(root, "init-project", { packageSource: "./seene.tgz" }), "conflict");
     expect(await readFile(path.join(root, "src/main.tsx"), "utf8")).toBe(original);
     expect(await readFile(path.join(root, "SEENE.md"), "utf8")).toBe("user document created during install");
     await rm(path.join(root, "SEENE.md"));
@@ -429,14 +495,14 @@ describe("installed coding-agent handoff", () => {
     expect(["first", "second"]).toContain(await readFile(path.join(root, "SEENE.md"), "utf8"));
     expect((await readdir(root)).filter(name => name.startsWith("SEENE.md."))).toEqual([]);
   });
-  it.each(["react", "react-dom"])("reports missing %s instead of asking for a Flute tarball", async name => {
+  it.each(["react", "react-dom"])("reports missing %s instead of asking for a Seene tarball", async name => {
     const root = await fixture();
     await rm(path.join(root, "node_modules", name), { recursive: true });
     const result = await run(root);
     failure(result, "missing-installation");
-    expect(JSON.stringify(result)).toContain("npm install");
+    expect(JSON.stringify(result)).toContain("this project's declared React");
     expect(JSON.stringify(result)).toContain(name);
-    expect(await readdir(root)).not.toContain(".flute");
+    expect(await readdir(root)).not.toContain(".seene");
     expect(await readdir(root)).not.toContain("SEENE.md");
   });
   it("reports an absent local tarball before creating setup files", async () => {
@@ -444,19 +510,19 @@ describe("installed coding-agent handoff", () => {
     const result = await run(root, "init-project", { packageSource: "./missing.tgz" });
     failure(result, "package-unavailable");
     expect(JSON.stringify(result)).toContain("Correct --package");
-    expect(await readdir(root)).not.toContain(".flute");
+    expect(await readdir(root)).not.toContain(".seene");
   });
 });
 
 describe("generated preview refresh boundary setup", () => {
-  const adapterPath = "src/flute/ProjectPreview.tsx";
+  const adapterPath = "src/seene/ProjectPreview.tsx";
   function legacyEntry(id: string, version: number) {
     const props = `projectId="${id}" enabled={import.meta.env.DEV}`
       + (version >= 3 ? ' hot={import.meta.hot}' : '')
-      + (version >= 4 ? ' sceneModules={import.meta.env.DEV ? import.meta.glob("/src/flute/scenes/*.{scene.json,tsx}") : undefined}' : '');
-    return 'import { ProjectPreview as FluteProjectPreview } from "@thatg33k/seene/preview";\n'
-      + original.replace('<StrictMode>', `<FluteProjectPreview ${props}>{<StrictMode>`)
-        .replace('</StrictMode>,', '</StrictMode>}</FluteProjectPreview>,');
+      + (version >= 4 ? ' sceneModules={import.meta.env.DEV ? import.meta.glob("/src/seene/scenes/*.{scene.json,tsx}") : undefined}' : '');
+    return 'import { ProjectPreview as SeeneProjectPreview } from "@thatg33k/seene/preview";\n'
+      + original.replace('<StrictMode>', `<SeeneProjectPreview ${props}>{<StrictMode>`)
+        .replace('</StrictMode>,', '</StrictMode>}</SeeneProjectPreview>,');
   }
   it.each([2, 3, 4])("upgrades generated v%s props while preserving identity and providers", async version => {
     const root = await fixture();

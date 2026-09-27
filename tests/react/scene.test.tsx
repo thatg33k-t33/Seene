@@ -14,7 +14,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { evaluateScene, transformToCss } from "../../src/core";
+import { cameraToCss, evaluateScene, transformToCss } from "../../src/core";
 import { Motion, Scene, SceneErrorBoundary, Surface } from "../../src/react";
 
 function createObserver(callback: ResizeObserverCallback) {
@@ -35,20 +35,20 @@ function Observer(callback: ResizeObserverCallback) {
   return observer;
 }
 const node = (id: string) =>
-  document.querySelector<HTMLDivElement>(`[data-flute-id="${id}"]`)!;
+  document.querySelector<HTMLDivElement>(`[data-seene-id="${id}"]`)!;
 beforeEach(() => {
   observerInstances = [];
   vi.stubGlobal("ResizeObserver", Observer);
   vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(
     function (this: HTMLElement) {
-      return this.hasAttribute("data-flute-stage")
+      return this.hasAttribute("data-seene-stage")
         ? 800
         : parseFloat(this.style.width) || 200;
     },
   );
   vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(
     function (this: HTMLElement) {
-      return this.hasAttribute("data-flute-stage")
+      return this.hasAttribute("data-seene-stage")
         ? 400
         : parseFloat(this.style.height) || 100;
     },
@@ -66,7 +66,7 @@ beforeEach(() => {
   vi.spyOn(HTMLElement.prototype, "offsetParent", "get").mockImplementation(
     function (this: HTMLElement) {
       return (
-        this.parentElement?.closest("[data-flute-id], [data-flute-stage]") ??
+        this.parentElement?.closest("[data-seene-id], [data-seene-stage]") ??
         null
       );
     },
@@ -118,8 +118,8 @@ describe("live React spatial adapter", () => {
     expect(screen.getByRole("button")).toBe(button);
     expect(button.textContent).toBe("API result: 1");
     expect(mounts).toBe(1);
-    expect(Number(node("back").dataset.fluteBlur)).toBeGreaterThan(0);
-    expect(node("front").dataset.fluteBlur).toBe("0");
+    expect(Number(node("back").dataset.seeneBlur)).toBeGreaterThan(0);
+    expect(node("front").dataset.seeneBlur).toBe("0");
   });
 
   it("uses core transform order, camera rotation and measured parent-relative centers", () => {
@@ -156,7 +156,7 @@ describe("live React spatial adapter", () => {
       </Scene>,
     );
     // The mocked stage is 800x400; nodes use explicit untransformed border boxes.
-    const stage = document.querySelector<HTMLElement>("[data-flute-stage]")!;
+    const stage = document.querySelector<HTMLElement>("[data-seene-stage]")!;
     const expected = evaluateScene(
       {
         camera,
@@ -175,12 +175,12 @@ describe("live React spatial adapter", () => {
         child: { width: 100, height: 50, offsetX: 100, offsetY: -55 },
       },
     );
-    expect(Number(node("child").dataset.fluteDepth)).toBeCloseTo(
+    expect(Number(node("child").dataset.seeneDepth)).toBeCloseTo(
       expected.nodes[1].worldPosition.z,
     );
     expect(node("group").style.transform).toBe(transformToCss(transform));
     expect(stage.style.transform).toBe(
-      transformToCss({ rotateX: 10, rotateY: 35, rotateZ: 5 }),
+      cameraToCss({ rotateX: 10, rotateY: 35, rotateZ: 5, perspective: 1500 }),
     );
     expect(projected).not.toHaveBeenCalled();
   });
@@ -213,14 +213,14 @@ describe("live React spatial adapter", () => {
     expect(node("group").style.filter).toBe("none");
     expect(
       node("group")
-        .querySelector("[data-flute-content]")
+        .querySelector("[data-seene-content]")
         ?.getAttribute("style"),
     ).toContain("blur(6px)");
-    expect(node("child").closest("[data-flute-content]")).toBeNull();
+    expect(node("child").closest("[data-seene-content]")).toBeNull();
     expect(node("implicit-group").style.filter).toBe("none");
     expect(node("motion").parentElement?.style.filter).toBe("none");
     expect(
-      node("leaf").querySelector<HTMLElement>("[data-flute-content]")?.style
+      node("leaf").querySelector<HTMLElement>("[data-seene-content]")?.style
         .filter,
     ).toBe("blur(6px)");
   });
@@ -233,12 +233,12 @@ describe("live React spatial adapter", () => {
         </Surface>
       </Scene>,
     );
-    const before = Number(node("a").dataset.fluteDepth);
+    const before = Number(node("a").dataset.seeneDepth);
     node("a").style.width = "200px";
     act(() => {
       observerInstances.forEach((observer) => observer.flush());
     });
-    expect(Number(node("a").dataset.fluteDepth)).toBeCloseTo(before - 50);
+    expect(Number(node("a").dataset.seeneDepth)).toBeCloseTo(before - 50);
     const observers = observerInstances;
     view.unmount();
     expect(observers.every((observer) => observer.targets.size === 0)).toBe(
@@ -258,7 +258,7 @@ describe("live React spatial adapter", () => {
       </StrictMode>,
     );
     expect(screen.queryByRole("alert")).toBeNull();
-    expect(document.querySelectorAll('[data-flute-id="same"]')).toHaveLength(2);
+    expect(document.querySelectorAll('[data-seene-id="same"]')).toHaveLength(2);
     view.rerender(
       <StrictMode>
         <Scene>
@@ -267,7 +267,7 @@ describe("live React spatial adapter", () => {
       </StrictMode>,
     );
     expect(screen.queryByRole("alert")).toBeNull();
-    expect(document.querySelectorAll('[data-flute-id="same"]')).toHaveLength(1);
+    expect(document.querySelectorAll('[data-seene-id="same"]')).toHaveLength(1);
   });
 
   it("reports duplicate IDs visibly and recovers without remounting the live subtree", () => {
@@ -457,7 +457,7 @@ describe("live React spatial adapter", () => {
       </SceneErrorBoundary>,
     );
     expect(screen.getByRole("alert").textContent).toContain(
-      "inside a Flute Scene",
+      "inside a Seene Scene",
     );
   });
 });
@@ -515,10 +515,10 @@ it("applies deterministic camera, focus and surface tracks without replacing liv
   expect(screen.getByRole("textbox")).toBe(input);
   expect(node("a").style.transform).toContain("translate3d(50px");
   expect(
-    document.querySelector<HTMLElement>("[data-flute-stage]")!.style.transform,
+    document.querySelector<HTMLElement>("[data-seene-stage]")!.style.transform,
   ).toContain("translate3d(-20px");
   expect(
-    node("a").querySelector<HTMLElement>("[data-flute-content]")!.style.opacity,
+    node("a").querySelector<HTMLElement>("[data-seene-content]")!.style.opacity,
   ).toBe("0.5");
   expect(node("a").style.opacity).toBe("1");
   view.rerender(app(500, false));
@@ -531,7 +531,7 @@ it("applies deterministic camera, focus and surface tracks without replacing liv
 
 it('keeps the scene void black without recoloring the live UI',()=>{
  render(<Scene style={{background:'pink',backgroundImage:'linear-gradient(red, blue)'}}><Surface id="host"><button style={{backgroundColor:'white',color:'black'}}>Original host</button></Surface></Scene>);
- const scene=document.querySelector('[data-flute-scene]') as HTMLElement;
+ const scene=document.querySelector('[data-seene-scene]') as HTMLElement;
  expect(scene.style.backgroundColor).toBe('rgb(0, 0, 0)');expect(scene.style.backgroundImage).toBe('none');
  expect(screen.getByRole('button',{name:'Original host'}).style.backgroundColor).toBe('white');
 });
@@ -544,7 +544,7 @@ it('keeps the scene void black without recoloring the live UI',()=>{
     view.rerender(app(true));
     await act(async()=>{});
     expect(screen.queryByRole("alert")).toBeNull();
-    expect(node("label").querySelector('[data-flute-content]')).not.toBeNull();
+    expect(node("label").querySelector('[data-seene-content]')).not.toBeNull();
   });
 
 it("diagnoses scene content outside any focus owner", async()=>{

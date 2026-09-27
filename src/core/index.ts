@@ -12,4 +12,6 @@ export * from "./preview";
 
 export * from "./recipes";
 
+export * from "./platform";
+
 export * from "./branding";

@@ -7,6 +7,7 @@ import {
   useState,
   type ComponentType,
   type MouseEvent,
+  type ReactNode,
 } from "react";
 
 import {
@@ -14,6 +15,7 @@ import {
   motionDuration,
   matrixFor,
   TransformSchema,
+  type SceneIssue,
 } from "../core";
 
 import { Scene, Surface, SceneErrorBoundary } from "../react";
@@ -24,20 +26,22 @@ import { GettingStarted } from "./GettingStarted";
 
 export type SceneLibraryProps = {
   sources?: Record<string, unknown>;
-  bindings?: Record<string, ComponentType>;
+  bindings?: Record<string, ComponentType<{ children?: ReactNode }>>;
+  sourceIssues?: SceneIssue[];
+  hostContent?: ReactNode;
   hot?: PreviewHot;
   backHref?: string;
 };
 
 const EMPTY_SOURCES: Record<string, unknown> = {};
-const EMPTY_BINDINGS: Record<string, ComponentType> = {};
+const EMPTY_BINDINGS: Record<string, ComponentType<{ children?: ReactNode }>> = {};
 
 const ROW_HEIGHT = 150;
 const HEADING_HEIGHT = 110;
 
 const camera = {
-  perspective: 1400,
-  rotateX: 42,
+  perspective: 1800,
+  rotateX: -22,
 };
 
 const focus = {
@@ -55,13 +59,21 @@ const view = matrixFor(
 
 const SCENE_QUERY_PARAM = "seene-scene";
 
+function isPreviewQuery(): boolean {
+  if (typeof window === "undefined") return false;
+  const url = new URL(window.location.href);
+  return url.searchParams.get("seene-preview") === "1" || url.searchParams.get("flute-preview") === "1";
+}
+
 function getSelectedSceneId(): string | undefined {
   if (typeof window === "undefined") {
     return undefined;
   }
 
+  const url = new URL(window.location.href);
   return (
-    new URL(window.location.href).searchParams.get(SCENE_QUERY_PARAM) ??
+    url.searchParams.get("seene-scene") ??
+    url.searchParams.get("flute-scene") ??
     undefined
   );
 }
@@ -91,7 +103,7 @@ function getVisibleRows(scroll: number, height: number, count: number) {
 
   return {
     start: Math.max(0, firstVisible),
-    end: Math.min(count, lastVisible),
+    end: Math.min(count, Math.max(Math.max(0, firstVisible) + 6, lastVisible)),
   };
 }
 
@@ -118,12 +130,14 @@ function SceneSnapshot({ src }: { src: string }) {
 export function SceneLibrary({
   sources = EMPTY_SOURCES,
   bindings = EMPTY_BINDINGS,
+  sourceIssues = [],
+  hostContent,
   hot,
   backHref,
 }: SceneLibraryProps) {
   const [entered, setEntered] = useState(() => {
     if (typeof window === "undefined") return false;
-    return localStorage.getItem("seene-entered") === "true";
+    return getSelectedSceneId() !== undefined || isPreviewQuery() || localStorage.getItem("seene-entered") === "true";
   });
   const [sceneId, setSceneId] = useState(getSelectedSceneId);
   const [scroll, setScroll] = useState(0);
@@ -138,16 +152,27 @@ export function SceneLibrary({
   const { width, height } = size;
 
   const catalog = useMemo(
-    () =>
-      RESOURCES["resolve-recipes"]({
+    () => {
+      const resolved = RESOURCES["resolve-recipes"]({
         sources: Object.entries(sources).map(([path, document]) => ({
           path,
           document,
         })),
         bindingPaths: Object.keys(bindings),
         ...(sceneId ? { sceneId } : {}),
-      }),
-    [sources, bindings, sceneId],
+      });
+      const failedModulePaths = new Set(sourceIssues.map(issue => issue.path));
+      return {
+        ...resolved,
+        issues: [
+          ...resolved.issues.filter(issue =>
+            !(failedModulePaths.has(issue.path) && issue.message.includes("needs matching component")),
+          ),
+          ...sourceIssues,
+        ].sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0),
+      };
+    },
+    [sources, bindings, sourceIssues, sceneId],
   );
 
   const selectedScene = catalog.selected;
@@ -251,12 +276,11 @@ export function SceneLibrary({
       title,
       description: "Authored in Seene Studio",
       definition: {
-        version: 3,
         scene: {
           version: 3,
           camera: { perspective: 1800, rotateX: 4, rotateY: -7 },
           focus: { distance: 1800, fStop: 8, focalLength: 50, maxBlur: 6 },
-          nodes: [{ id: "flute-application" }]
+          nodes: [{ id: "seene-application" }]
         },
         motion: { durationMs: 4000, tracks: [] }
       }
@@ -304,7 +328,7 @@ export function SceneLibrary({
         onBack={closeScene}
         hot={hot}
       >
-        <SelectedComponent />
+        <SelectedComponent>{hostContent}</SelectedComponent>
       </ScenePreview>
     );
   }
@@ -317,7 +341,7 @@ export function SceneLibrary({
     height + Math.max(0, (catalog.scenes.length - 1) * ROW_HEIGHT);
 
   return (
-    <main className="fixed inset-0 isolate overflow-hidden bg-[#111114] text-[#f1f1f4]">
+    <main data-seene-library="" className="fixed inset-0 isolate overflow-hidden bg-[#111114] text-[#f1f1f4]">
       {sceneId && (
         <div className="absolute top-4 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-[#303038] bg-[#1a1a1f] px-5 py-3 text-xs text-[#85858e] shadow-lg" role="alert">
           <span className="text-[#f1f1f4]">This scene can&apos;t be opened.</span> Fix its source file or{" "}
@@ -395,9 +419,9 @@ export function SceneLibrary({
                     style={{
                       position: "absolute",
                       left: (width - planeWidth) / 2,
-                      top: height / 2 - HEADING_HEIGHT - ROW_HEIGHT / 2,
+                      top: height / 2 - HEADING_HEIGHT,
                       width: planeWidth,
-                      height: 1,
+                      height: contentHeight,
                     }}
                   >
                     <Surface
@@ -469,7 +493,7 @@ export function SceneLibrary({
                               {String(number + 1).padStart(2, "0")}
 
                               {scene.snapshot && (
-                                <SceneSnapshot src={scene.snapshot.image} />
+                                <SceneSnapshot key={scene.snapshot.image} src={scene.snapshot.image} />
                               )}
                             </span>
 

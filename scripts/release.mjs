@@ -16,7 +16,7 @@ export function validateIdentity(manifest, {repository, tag, publishing = false}
   assert.equal(manifest.license, 'MIT');
   assert.equal(manifest.publishConfig?.access, 'public');
   assert.equal(manifest.publishConfig?.registry, 'https://registry.npmjs.org/');
-  assert.equal(manifest.bin?.flute, './dist/cli/flute.js');
+  assert.equal(manifest.bin?.seene, './dist/cli/seene.js');
   assert.ok(!manifest.scripts?.install && !manifest.scripts?.postinstall && !manifest.scripts?.preinstall,
     'Consumer installation must not execute package lifecycle scripts');
   if (publishing || repository) {
@@ -36,7 +36,7 @@ export function validateRelease(manifest, files, options = {}) {
     assert.ok(/^(package\.json|README\.md|LICENSE|dist\/(library|cli)\/.+\.(js|map|ts))$/.test(name),
       'Unexpected packed file: ' + name);
   }
-  const required = ['package.json','README.md','LICENSE',manifest.bin.flute.slice(2)];
+  const required = ['package.json','README.md','LICENSE',manifest.bin.seene.slice(2)];
   for (const entry of Object.values(manifest.exports)) {
     assert.equal(typeof entry.types, 'string');
     assert.equal(typeof entry.import, 'string');
@@ -100,9 +100,9 @@ export async function inspectArtifact({publishing = false} = {}) {
     publishing, repository:process.env.GITHUB_REPOSITORY,
     tag:process.env.GITHUB_REF_TYPE === 'tag' ? process.env.GITHUB_REF_NAME : undefined
   });
-  const cli = await readFile(path.join(root,manifest.bin.flute),'utf8');
+  const cli = await readFile(path.join(root,manifest.bin.seene),'utf8');
   assert.ok(cli.startsWith('#!/usr/bin/env node'), 'CLI must have executable Node shebang');
-  assert.ok(artifact.files.find(file=>file.path===manifest.bin.flute.slice(2)).mode & 0o111, 'CLI must be executable');
+  assert.ok(artifact.files.find(file=>file.path===manifest.bin.seene.slice(2)).mode & 0o111, 'CLI must be executable');
   console.log('Checked artifact: '+artifact.filename+' ('+artifact.integrity+')');
   return path.join(directory, artifact.filename);
 }

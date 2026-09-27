@@ -1,11 +1,5 @@
 import type { Measurement, TransformInput, SceneIssue } from "../core";
 
-/** SOURCE OF TRUTH: React registration and untransformed layout measurements.
- * WHAT: one ephemeral registry per Scene; entries use mount identity, not public IDs.
- * WHY: duplicate IDs must reach core validation, and StrictMode cleanup must remove
- * only its own binding. No component instances or host data enter scene metadata.
- * WHERE: index.tsx supplies bindings; core owns all spatial policy and evaluation.
- */
 export type Binding = {
   token: symbol;
   id: string;
@@ -23,8 +17,6 @@ function sameObject(a: object | undefined, b: object | undefined) {
   );
 }
 
-// offset geometry excludes CSS transforms. Both origins use the same offset chain;
-// ancestor borders and scroll are accounted for before converting to local centers.
 function origin(element: HTMLElement) {
   let x = 0,
     y = 0;
@@ -46,15 +38,11 @@ function origin(element: HTMLElement) {
   return { x, y };
 }
 
-
-// SOURCE OF TRUTH: unfiltered group content diagnostics. Spatial ancestors cannot
-// be filtered without flattening descendants. Check actual rendered host content,
-// including custom React components; never silently leave labels/media sharp.
 function uncoveredContent(root:Element):boolean {
   for (const child of root.childNodes) {
     if (child.nodeType===3 && child.textContent?.trim()) return true;
     if (!(child instanceof Element)) continue;
-    if (child.hasAttribute("data-flute-id") || child.hasAttribute("data-flute-content") || child.matches('svg[width="0"],script,style,template')) continue;
+    if (child.hasAttribute("data-seene-id") || child.hasAttribute("data-seene-content") || child.matches('svg[width="0"],script,style,template')) continue;
     const css=getComputedStyle(child);
     if(css.display==='none'||css.visibility==='hidden') continue;
     if(child.matches('img,svg,canvas,video,input,textarea,select') || (css.backgroundImage && css.backgroundImage!=='none')) return true;
@@ -66,11 +54,12 @@ function uncoveredContent(root:Element):boolean {
 export function createRegistry() {
   const entries = new Map<symbol, Binding>();
   const measurements = new Map<symbol, Measurement>();
+  const measuredTokens = new Set<symbol>();
   const listeners = new Set<() => void>();
   let revision = 0;
-  let coverageDirty=true;
-  let coverageIssues:SceneIssue[]=[];
-  let mutations:MutationObserver|undefined;
+  let coverageDirty = true;
+  let coverageIssues: SceneIssue[] = [];
+  let mutations: MutationObserver | undefined;
   let stage: HTMLDivElement | null = null;
   let observer: ResizeObserver | undefined;
   const publish = () => {
@@ -81,30 +70,40 @@ export function createRegistry() {
     if (!stage) return false;
     let changed = false;
     for (const [token, entry] of entries) {
-      const parent =
-        (entry.parent && entries.get(entry.parent)?.element) || stage;
-      const p = origin(parent),
-        e = origin(entry.element);
-      const width = entry.element.offsetWidth,
-        height = entry.element.offsetHeight;
+      const parent = (entry.parent && entries.get(entry.parent)?.element) || stage;
+      const p = origin(parent), e = origin(entry.element);
+      const width = entry.element.offsetWidth, height = entry.element.offsetHeight;
       const next = {
         width,
         height,
         offsetX: e.x + width / 2 - p.x - parent.offsetWidth / 2,
         offsetY: e.y + height / 2 - p.y - parent.offsetHeight / 2,
       };
+      if (measurements.has(token)) {
+        measuredTokens.add(token);
+      }
       if (!sameObject(measurements.get(token), next)) {
         measurements.set(token, next);
         changed = true;
+        coverageDirty = true;
       }
     }
-    if(coverageDirty) {
-      coverageDirty=false;
-      const groups=new Set(Array.from(entries.values()).map(b=>b.parent));
-      const next=Array.from(entries.values()).filter(b=>groups.has(b.token)&&uncoveredContent(b.element)).map(b=>({path:b.id,message:"Unfiltered content in spatial group. Wrap each visible text/media region in a Surface, or put its paint in content. Group filters would flatten nested 3D."}));
-      if(uncoveredContent(stage)) next.push({path:"scene",message:"Unfiltered scene content. Wrap visible text/media in a Surface so camera depth of field can apply."});
-      if(JSON.stringify(next)!==JSON.stringify(coverageIssues)){coverageIssues=next;changed=true;}
+    const zeroArea = Array.from(entries.entries())
+      .filter(([token, b]) => measuredTokens.has(token) && (b.element.offsetWidth === 0 || b.element.offsetHeight === 0))
+      .map(([_, b]) => ({ path: b.id, message: "no measurable area" }));
+
+    const groups = new Set(Array.from(entries.values()).map(b => b.parent));
+    const next: SceneIssue[] = Array.from(entries.values())
+      .filter(b => groups.has(b.token) && uncoveredContent(b.element))
+      .map(b => ({ path: b.id, message: "Unfiltered content in spatial group. Wrap each visible text/media region in a Surface, or put its paint in content. Group filters would flatten nested 3D." }));
+    if (uncoveredContent(stage)) next.push({ path: "scene", message: "Unfiltered scene content. Wrap visible text/media in a Surface so camera depth of field can apply." });
+    next.push(...zeroArea);
+
+    if (JSON.stringify(next) !== JSON.stringify(coverageIssues)) {
+      coverageIssues = next;
+      changed = true;
     }
+    coverageDirty = false;
     return changed;
   };
   const refresh = () => {
@@ -126,11 +125,11 @@ export function createRegistry() {
       stage = element;
       if(typeof MutationObserver!=="undefined") {
         mutations=new MutationObserver(records=>{
-          if(records.some(r=>!(r.target instanceof Element ? r.target : r.target.parentElement)?.closest('[data-flute-content],svg[width="0"]'))) {
+          if(records.some(r=>!(r.target instanceof Element ? r.target : r.target.parentElement)?.closest('[data-seene-content],svg[width="0"]'))) {
             coverageDirty=true; refresh();
           }
         });
-        mutations.observe(element,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:["data-flute-content"]});
+        mutations.observe(element,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:["data-seene-content"]});
       }
       if (typeof ResizeObserver !== "undefined") {
         observer = new ResizeObserver(refresh);
@@ -166,9 +165,6 @@ export function createRegistry() {
         });
         observer?.observe(binding.element);
       }
-      // Playback re-renders every binding. Unchanged registration must not perform
-      // N full layout walks; Scene refreshes once after the commit, while resize
-      // and scroll observers handle external geometry changes.
       if (changed) {
         coverageDirty=true;
         measure();
@@ -180,6 +176,7 @@ export function createRegistry() {
       if (!previous) return;
       observer?.unobserve(previous.element);
       entries.delete(token);
+      measuredTokens.delete(token);
       coverageDirty=true;
       measurements.delete(token);
       measure();

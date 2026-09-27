@@ -1,10 +1,5 @@
 import { useEffect, useState } from "react";
 
-/** SOURCE OF TRUTH: Vite preview connection adapter.
- * WHAT: translate host development events into connection/recovery messages.
- * WHY: an installed production bundle cannot capture the host's import.meta.hot.
- * WHERE: callers explicitly pass their hot context; no server or polling is created.
- */
 export type PreviewHot = {
   on(event: string, listener: (payload: any) => void): void;
   off(event: string, listener: (payload: any) => void): void;

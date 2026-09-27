@@ -5,11 +5,6 @@ import {executeRecipeCommand} from "../project/recipes";
 import { fault } from "../project/errors";
 import * as services from "./services";
 
-/** SOURCE OF TRUTH: executeVideoExport, executeSceneSnapshot trusted operations.
- * WHAT: validate requests, local scope and capture state before publishing video.
- * WHY: CLI and other callers must share the same export policy and canonical scene clock.
- * WHERE: cli/index adapts arguments; services owns all browser/filesystem/process effects.
- */
 export async function executeVideoExport(input: unknown, context: { root: string; signal?: AbortSignal }): Promise<ExportVideoResult> {
   let session: Awaited<ReturnType<typeof services.openCapture>> | undefined;
   try {
@@ -30,7 +25,6 @@ export async function executeVideoExport(input: unknown, context: { root: string
   } finally { await session?.close(); }
 }
 
-/** Capture one canonical frame and save it with the recipe, never mount scenes in list tiles. */
 export async function executeSceneSnapshot(input:unknown,context:{root:string;signal?:AbortSignal}){
  let session:Awaited<ReturnType<typeof services.openCapture>>|undefined;
  try{
@@ -43,7 +37,6 @@ export async function executeSceneSnapshot(input:unknown,context:{root:string;si
   if(!original)throw fault("source-changed","Scene source disappeared. Restore it and retry.");
   const recipe=SceneRecipeSchema.parse(JSON.parse(original));
   if(recipe.id!==selected.id||JSON.stringify(recipe.definition)!==JSON.stringify(selected.definition))throw fault("source-changed","Scene source changed. Retry the snapshot.");
-  // Small cached image; keep the authored aspect ratio and canonical playback clock.
   const width=320, height=Math.max(64,Math.min(640,Math.round(width*recipe.definition.height/recipe.definition.width)));
   session=await services.openCapture({url:opened.data.url!,width,height},context.signal);
   const manifest=CaptureManifestSchema.parse(await session.manifest());

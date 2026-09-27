@@ -11,11 +11,11 @@ let root: string;
 let url: string;
 let requests = 0;
 beforeAll(async () => {
-  root = await mkdtemp(path.join(tmpdir(), "flute-video-test-"));
+  root = await mkdtemp(path.join(tmpdir(), "seene-video-test-"));
   server = createServer((req, res) => {
     requests++;
     res.setHeader("content-type", "text/html");
-    res.end(`<style>body{margin:0}#scene{width:127px;height:95px;background:black}#box{width:32px;height:32px;background:red}</style><div id="scene" data-flute-capture="scene"><div id="box"></div></div><div data-flute-preview-chrome style="position:fixed;inset:0;background:lime;z-index:999"></div><script>${req.url === "/missing" ? "" : `window.__FLUTE_CAPTURE__={version:${req.url === "/wrong" ? 2 : 1},durationMs:${req.url === "/cancel" ? 120000 : 100},selector:'[data-flute-capture="scene"]',seek(t){${req.url === '/throw' ? 'if(t>0)throw new Error("fixture failure");' : ''}document.getElementById('box').style.background=t<40?'red':'blue';document.getElementById('box').style.transform='translateX('+t+'px)'}}`}</script>`);
+    res.end(`<style>body{margin:0}#scene{width:127px;height:95px;background:black}#box{width:32px;height:32px;background:red}</style><div id="scene" data-seene-capture="scene"><div id="box"></div></div><div data-seene-preview-chrome style="position:fixed;inset:0;background:lime;z-index:999"></div><script>${req.url === "/missing" ? "" : `window.__SEENE_CAPTURE__={version:${req.url === "/wrong" ? 2 : 1},durationMs:${req.url === "/cancel" ? 120000 : 100},selector:'[data-seene-capture="scene"]',seek(t){${req.url === '/throw' ? 'if(t>0)throw new Error("fixture failure");' : ''}document.getElementById('box').style.background=t<40?'red':'blue';document.getElementById('box').style.transform='translateX('+t+'px)'}}`}</script>`);
   });
   await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
   url = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
@@ -38,7 +38,7 @@ describe("live MP4 export", () => {
     // The real frame remains red, not the opaque green product overlay above it.
     const pixel=(10*128+10)*3;expect(raw[pixel]).toBeGreaterThan(200);expect(raw[pixel+1]).toBeLessThan(40);
     expect(raw.subarray(0,frameSize).equals(raw.subarray(raw.length-frameSize))).toBe(false);
-    expect((await readdir(root)).some(name=>name.startsWith('.flute-export-'))).toBe(false);
+    expect((await readdir(root)).some(name=>name.startsWith('.seene-export-'))).toBe(false);
   },30_000);
   it("rejects invalid URLs, rates, dimensions and escaped/protected paths before capture", async () => {
     const count=requests;
@@ -55,12 +55,12 @@ describe("live MP4 export", () => {
   it.each(["missing","wrong"])("rejects a %s bridge and cleans up", async route => {
     expect(await run({url:`${url}/${route}`})).toMatchObject({success:false,issues:[{code:route==="missing"?"missing-capture":"invalid-capture"}]});
     expect(await readdir(root)).not.toContain("clip.mp4");
-    expect((await readdir(root)).some(name=>name.startsWith('.flute-export-'))).toBe(false);
+    expect((await readdir(root)).some(name=>name.startsWith('.seene-export-'))).toBe(false);
   },15_000);
   it("cleans partial encoding after the scene seek fails", async () => {
     expect((await run({url:`${url}/throw`,output:"throw.mp4"})).success).toBe(false);
     expect(await readdir(root)).not.toContain("throw.mp4");
-    expect((await readdir(root)).some(name=>name.startsWith('.flute-export-'))).toBe(false);
+    expect((await readdir(root)).some(name=>name.startsWith('.seene-export-'))).toBe(false);
   },15_000);
   it("reports missing FFmpeg and removes its temporary output", async () => {
     const previousPath = process.env.PATH;
@@ -69,7 +69,7 @@ describe("live MP4 export", () => {
       expect(await run({output:"missing-encoder.mp4"})).toMatchObject({success:false,issues:[{code:"missing-ffmpeg"}]});
     } finally { process.env.PATH = previousPath; }
     expect(await readdir(root)).not.toContain("missing-encoder.mp4");
-    expect((await readdir(root)).some(name=>name.startsWith('.flute-export-'))).toBe(false);
+    expect((await readdir(root)).some(name=>name.startsWith('.seene-export-'))).toBe(false);
   },15_000);
   it("cancels active encoding and removes temporary files", async () => {
     const controller = new AbortController();
@@ -78,7 +78,7 @@ describe("live MP4 export", () => {
       expect(await executeVideoExport({url:`${url}/cancel`,output:"interrupted.mp4",width:128,height:96},{root,signal:controller.signal})).toMatchObject({success:false,issues:[{code:"export-cancelled"}]});
     } finally { clearTimeout(timer); }
     expect(await readdir(root)).not.toContain("interrupted.mp4");
-    expect((await readdir(root)).some(name=>name.startsWith('.flute-export-'))).toBe(false);
+    expect((await readdir(root)).some(name=>name.startsWith('.seene-export-'))).toBe(false);
   },15_000);
   it("cancels before browser effects", async () => {
     const controller=new AbortController(); controller.abort();

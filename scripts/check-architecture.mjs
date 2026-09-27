@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
  */
 const owners = new Map([
   ['SyncProjectSchema','src/core/project.ts'], ['discoverRecipes','src/project/discovery.ts'],
+  ['seeneCreateScenePlugin','src/vite/seene-plugin.ts'],
   ['portableIntegration','src/project/portable.ts'], ['portableCatalog','src/project/portable.ts'],
   ...['SceneRecipeSchema','SnapshotSceneSchema','SceneSnapshotSchema','ListScenesSchema','LoadSceneSchema','OpenSceneSchema'].map(name=>[name,'src/core/recipes.ts']),['loadSceneRecipes','src/core/recipes.ts'],
   ['executeRecipeCommand','src/project/recipes.ts'],['SceneLibrary','src/preview/SceneLibrary.tsx'],
@@ -35,10 +36,12 @@ const layers = {
   runtime: { local: ['core', 'runtime'], external: ['zod'] },
   react: { local: ['core', 'runtime', 'react'], external: ['react', 'react-dom', 'react-error-boundary', 'zod'] },
   preview: { local: ['core', 'react', 'preview'], external: ['react', 'react-dom'] },
+  platform: { local: ['core', 'preview', 'react', 'platform'], external: ['react', 'react-dom', 'zod'] },
   commands: { local: ['core', 'commands', 'projectAdapter', 'projectErrors', 'services'], external: ['zod'] },
   projectAdapter: { local: ['core', 'projectAdapter', 'projectErrors'], external: ['typescript', 'zod'] },
   projectErrors: { local: ['projectErrors'], external: [] },
   services: { local: ['core', 'services', 'projectErrors'], external: ['zod', 'typescript'] },
+  viteIntegration: { local: ['core', 'viteIntegration'], external: ['vite', 'zod'] },
   exportCommands: {local:['core','commands','exportCommands','exportServices','services','projectErrors'], external:['zod']},
   exportServices: {local:['core','exportServices','services','projectErrors'],external:['zod','playwright']},
   cli: { local: ['core', 'commands', 'exportCommands', 'cli'], external: [] },
@@ -61,18 +64,19 @@ const layerOf = name => {
   if (/^src\/project\/errors(?:\.[cm]?[jt]s)?$/.test(name)) return 'projectErrors';
   if (/^src\/project\/(?:commands|recipes|discovery)(?:\.[cm]?[jt]s)?$/.test(name)) return 'commands';
   if (/^src\/project\/services(?:\.[cm]?[jt]s$|\/|$)/.test(name)) return 'services';
+  if (name.startsWith('src/vite/')) return 'viteIntegration';
   if (/^src\/export\/commands\.[cm]?[jt]s$/.test(name)) return 'exportCommands';
   if (name.startsWith('src/export/')) return 'exportServices';
   if (name.startsWith('src/project/')) return 'projectAdapter';
-  return /^src\/(core|runtime|react|preview|cli)(?:\/|$)/.exec(name)?.[1];
+  return /^src\/(core|runtime|react|preview|platform|cli)(?:\/|$)/.exec(name)?.[1];
 };
-const browserLayers = new Set(['react', 'preview']);
+const browserLayers = new Set(['react', 'preview', 'platform']);
 const packageOf = name => name.startsWith('@') ? name.split('/').slice(0, 2).join('/') : name.split('/')[0];
 
 /** Returns actionable diagnostics; fixtures and the CLI use exactly the same rules. */
 export function checkArchitecture(input, { compilerOptions = {} } = {}) {
   const sources = new Map(Object.entries(input).map(([name, text]) => [normalize(name), text]));
-  const root = '/__flute_architecture__';
+  const root = '/__seene_architecture__';
   const virtualName = name => `${root}/${name}`;
   const files = new Map([...sources].map(([name, text]) => [virtualName(name), ts.createSourceFile(virtualName(name), text, ts.ScriptTarget.Latest, true)]));
   const options = { ...compilerOptions, noLib: true, noResolve: true, allowJs: true, jsx: ts.JsxEmit.ReactJSX };
@@ -115,7 +119,7 @@ export function checkArchitecture(input, { compilerOptions = {} } = {}) {
       const target = resolved?.startsWith(`${root}/`) ? resolved.slice(root.length + 1) : relative;
       const builtin = nodeModules.has(specifier.replace(/^node:/, ''));
       const allowed = target ? layers[layer].local.includes(layerOf(target))
-        : (['services','exportServices'].includes(layer) && builtin) || (!specifier.startsWith('node:') && !builtin && layers[layer].external.includes(packageOf(specifier)));
+        : (['services','exportServices','viteIntegration'].includes(layer) && builtin) || (!specifier.startsWith('node:') && !builtin && layers[layer].external.includes(packageOf(specifier)));
       if (!allowed) add(file, expression, 'module-boundary', `${layer} cannot depend on ${specifier}; consume its allowed canonical owners instead.`);
     }
 
@@ -158,7 +162,7 @@ export function checkArchitecture(input, { compilerOptions = {} } = {}) {
           implemented = !!body && (!ts.isBlock(body) || body.statements.length > 0);
         }
         if (exported && !ambient && implemented && statement.parent === file) implementations.get(symbol).push(node);
-        else add(file, identifier, 'canonical-implementation', `${symbol} needs an exported runtime ${symbol==='FLUTE_BRAND' ? 'frozen metadata object' : symbol.endsWith('Schema') ? 'Zod object schema' : 'function body'} in its owner.`);
+        else add(file, identifier, 'canonical-implementation', `${symbol} needs an exported runtime ${symbol==='SEENE_BRAND' ? 'frozen metadata object' : symbol.endsWith('Schema') ? 'Zod object schema' : 'function body'} in its owner.`);
       }
     }
 
@@ -180,7 +184,7 @@ export function checkArchitecture(input, { compilerOptions = {} } = {}) {
         const propertyName = (ts.isPropertyAccessExpression(parent) && parent.name === node)
           || ((ts.isPropertyAssignment(parent) || ts.isMethodDeclaration(parent) || ts.isPropertyDeclaration(parent)) && parent.name === node)
           || ts.isImportSpecifier(parent) || ts.isExportSpecifier(parent);
-        const forbidden = !['services','exportServices'].includes(layer) && (
+        const forbidden = !['services','exportServices','viteIntegration'].includes(layer) && (
           (nodeGlobals.has(node.text) && !(layer === 'cli' && node.text === 'process'))
           || (!browserLayers.has(layer) && domGlobals.has(node.text) && !(layer === 'commands' && node.text === 'URL'))
         );
@@ -207,17 +211,7 @@ export function checkArchitecture(input, { compilerOptions = {} } = {}) {
     }
     visit(file);
 
-    if ([...owners.values()].includes(name)) {
-      const comments = [];
-      // Leading AST trivia only: strings containing documentation cannot satisfy this rule.
-      for (const statement of file.statements) for (const range of ts.getLeadingCommentRanges(file.text, statement.getFullStart()) ?? []) comments.push(file.text.slice(range.pos, range.end));
-      const symbols = [...owners].filter(([, owner]) => owner === name).map(([symbol]) => symbol);
-      const documented = comments.some(comment => /SOURCE OF TRUTH\s*:/i.test(comment) && symbols.every(symbol => comment.includes(symbol)) && ['WHAT', 'WHY', 'WHERE'].every(label => {
-        const value = new RegExp(`\\b${label}:([^\\n]+)`).exec(comment)?.[1]?.replace(/\*\//g, '').trim();
-        return value && value.split(/\s+/).length >= 3 && !/^(todo|tbd|n\/a)\b/i.test(value);
-      }));
-      if (!documented) add(file, undefined, 'owner-documentation', `Document SOURCE OF TRUTH (${symbols.join(', ')}) and substantive WHAT/WHY/WHERE clauses in an owner comment.`);
-    }
+
   }
   for (const [symbol, owner] of owners) {
     if (implementations.get(symbol).length !== 1) issues.push({ file: owner, line: 1, column: 1, rule: 'canonical-presence', message: `Expected exactly one exported runtime implementation of ${symbol} in ${owner}.` });

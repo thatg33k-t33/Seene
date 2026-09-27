@@ -4,21 +4,21 @@ import { terminalWelcome, formatOnboarding, terminalText } from "../../src/cli/t
 import { SEENE_BRAND } from "../../src/core/branding";
 import type { ProjectResult } from "../../src/core/project";
 const terminal = {interactive:true, colorDepth:24, columns:90, version:"9.8.7"};
-const handoff = {path:"SEENE.md" as const,guideCommand:"npx seene guide --json" as const,guideVersion:1,prompt:"Open the Seene studio."};
+const handoff = {path:"SEENE.md" as const,guideCommand:"pnpm exec seene guide --json" as const,guideVersion:1,prompt:"Open the Seene studio."};
 const ready = (kind?:string, changed=true): Extract<ProjectResult,{success:true}> => ({success:true,data:{changed,handoff,
  project:{version:1,projectId:"00000000-0000-4000-8000-000000000000",entry:"src/main.tsx",packageManager:"npm"},
  ...(kind?{integration:{kind,component:"src/seene/ProjectPreview.jsx",...(kind==='react'?{}:{route:"/seene"}),instructions:"Canonical host instructions."}}:{})}});
 const plain = (text:string) => text.replace(/\x1b\[[0-9;]*m/g, "");
-describe("Amethyst terminal onboarding",()=>{
+describe("Seene terminal onboarding",()=>{
  it("uses the approved wordmark, real supplied version and canonical brand",()=>{
   const text=terminalWelcome(terminal);
   expect(text).toContain("\x1b[38;2;191;161;255m");
-  for(const value of ["███████",SEENE_BRAND.title,SEENE_BRAND.url,"v9.8.7","cinematic 3D mockups"])expect(plain(text)).toContain(value);
+  for(const value of ["███████",SEENE_BRAND.title,SEENE_BRAND.url,"v9.8.7","cinematic 3D scenes"])expect(plain(text)).toContain(value);
  });
  it.each([0,4,8,24])("adapts ANSI to color depth %s",colorDepth=>{
   const text=terminalWelcome({...terminal,colorDepth});
   expect(text.includes("\x1b[")).toBe(colorDepth>0);
-  expect(plain(text)).toContain("Seene by Web Prodigies");
+  expect(plain(text)).toContain(SEENE_BRAND.title);
  });
  it.each([{interactive:false},{columns:40},{unicode:false}])("uses compact type when large lettering is unsuitable: %j",overrides=>{
   const text=terminalWelcome({...terminal,...overrides});
@@ -30,7 +30,7 @@ describe("Amethyst terminal onboarding",()=>{
   expect(text).not.toContain("localhost:3000");
  });
  it("reports retries accurately and only prints a URL returned by the operation",()=>{
-  const result=ready('next-app',false);result.data.url="http://localhost:4321/seene?flute-preview=1";
+  const result=ready('next-app',false);result.data.url="http://localhost:4321/seene?seene-preview=1";
   const text=plain(formatOnboarding(result,terminal));
   expect(text).toContain(result.data.url);
  });

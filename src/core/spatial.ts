@@ -1,8 +1,3 @@
-/** SOURCE OF TRUTH: evaluateScene, transformToCss, cameraToCss, focusForSurface, sampleFocus, focusMask, uniformFocusBlur.
- * WHAT: camera-space transforms and progressive spatial focus for every renderer consumer.
- * WHY: one mathematical definition keeps DOM preview and future output adapters consistent.
- * WHERE: React registration provides untransformed layout measurements; no DOM or transport is imported here.
- */
 import {
   TransformSchema,
   validateScene,
@@ -31,7 +26,7 @@ export type EvaluatedNode = {
   height: number;
   blur: number;
   opacity: number;
-  focus: { depth: number; distance: number; span: number };
+  focus: { depth: number; distance: number; span: number; maxBlur: number; scale: number };
 };
 export type Evaluation = {
   nodes: EvaluatedNode[];
@@ -39,6 +34,7 @@ export type Evaluation = {
   issues: SceneIssue[];
 };
 const rad = Math.PI / 180;
+export const FOCUS_BANDS = 4;
 export function multiply(a: Matrix, b: Matrix): Matrix {
   const out = new Array(16);
   for (let r = 0; r < 4; r++) {
@@ -59,11 +55,17 @@ export function matrixFor(input: TransformInput = {}): Matrix {
   const rx = [1, 0, 0, 0, 0, cx, -sx, 0, 0, sx, cx, 0, 0, 0, 0, 1];
   const ry = [cy, 0, sy, 0, 0, 1, 0, 0, -sy, 0, cy, 0, 0, 0, 0, 1];
   const rz = [cz, -sz, 0, 0, sz, cz, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
-  return [rx, ry, rz].reduce(multiply, translate);
+  const scale = [
+    t.scale, 0, 0, 0,
+    0, t.scale, 0, 0,
+    0, 0, t.scale, 0,
+    0, 0, 0, 1,
+  ];
+  return [rx, ry, rz, scale].reduce(multiply, translate);
 }
 export function transformToCss(input: TransformInput = {}): string {
   const t = TransformSchema.parse(input);
-  return `translate3d(${t.x}px, ${t.y}px, ${t.z}px) rotateX(${t.rotateX}deg) rotateY(${t.rotateY}deg) rotateZ(${t.rotateZ}deg)`;
+  return `translate3d(${t.x}px, ${t.y}px, ${t.z}px) rotateX(${t.rotateX}deg) rotateY(${t.rotateY}deg) rotateZ(${t.rotateZ}deg) scale(${t.scale})`;
 }
 export function evaluateScene(
   input: unknown,
@@ -71,7 +73,14 @@ export function evaluateScene(
 ): Evaluation {
   const parsed = validateScene(input);
   if (!parsed.success)
-    return { nodes: [], focusDepth: 0, issues: parsed.issues };
+    return {
+      nodes: [],
+      focusDepth: 0,
+      issues: parsed.error.issues.map((err: any) => ({
+        path: err.path.join("."),
+        message: err.message,
+      })),
+    };
   const scene = parsed.data;
   const nodeMap = new Map(scene.nodes.map((node) => [node.id, node]));
   const cache = new Map<string, Matrix>();
@@ -80,12 +89,12 @@ export function evaluateScene(
     TransformSchema.parse(
       scene.camera
         ? {
-            x: -scene.camera.x,
-            y: -scene.camera.y,
-            z: -scene.camera.z,
-            rotateX: scene.camera.rotateX,
-            rotateY: scene.camera.rotateY,
-            rotateZ: scene.camera.rotateZ,
+            x: -(scene.camera.x ?? 0),
+            y: -(scene.camera.y ?? 0),
+            z: -(scene.camera.z ?? 0),
+            rotateX: scene.camera.rotateX ?? 0,
+            rotateY: scene.camera.rotateY ?? 0,
+            rotateZ: scene.camera.rotateZ ?? 0,
           }
         : {},
     ),
@@ -127,14 +136,18 @@ export function evaluateScene(
   const defaultCamera = CameraSchema.parse({});
   const focusCamera = scene.camera ?? defaultCamera;
   const focusDepth = -focusCamera.z;
+  const perspective = focusCamera.perspective ?? 1400;
   const evaluatedNodes: EvaluatedNode[] = scene.nodes.map((node) => {
     const world = getWorld(node.id);
     const worldPosition = { x: world[3], y: world[7], z: world[11] };
     const size = measurements[node.id] ?? { width: 1, height: 1 };
     const depth = worldPosition.z;
-    const distance = Math.abs(depth - focusDepth);
+    const nodeDistance = perspective - depth;
+    const distance = Math.abs(nodeDistance - (scene.focus.distance ?? perspective));
     const span = Math.max(size.width, size.height, 1);
-    const blur = uniformFocusBlur(distance, span, scene.focus);
+    const scale = Math.hypot(world[0], world[1], world[2]) || 1;
+    const focusObj = { depth, distance, span, maxBlur: scene.focus.maxBlur, scale };
+    const blur = (uniformFocusBlur(distance, span, scene.focus) ?? 0) as number;
     return {
       id: node.id,
       ...(node.parentId ? { parentId: node.parentId } : {}),
@@ -143,7 +156,7 @@ export function evaluateScene(
       height: size.height,
       blur,
       opacity: 1,
-      focus: { depth, distance, span },
+      focus: focusObj,
     };
   });
   return { nodes: evaluatedNodes, focusDepth, issues };
@@ -152,36 +165,39 @@ export function cameraToCss(input: CameraInput = {}): string {
   const c = CameraSchema.parse(input);
   return `perspective(${c.perspective}px) rotateX(${c.rotateX}deg) rotateY(${c.rotateY}deg) rotateZ(${c.rotateZ}deg) translate3d(${-c.x}px, ${-c.y}px, ${-c.z}px)`;
 }
-export function focusForSurface(transform: TransformInput = {}, focusInput: unknown = {}): { depth: number; distance: number; span: number } {
-  const t = TransformSchema.parse(transform);
+export function focusForSurface(transform: TransformInput | Matrix = {}, focusInput: unknown = {}): { depth: number; distance: number; span: number; maxBlur: number; scale: number } {
   const f = FocusSchema.parse(focusInput);
-  return { depth: t.z, distance: f.distance, span: 100 };
+  const matrix = Array.isArray(transform) ? transform : matrixFor(transform as TransformInput);
+  const depth = matrix[11];
+  const scale = Math.hypot(matrix[0], matrix[1], matrix[2]) || 1;
+  return { depth, distance: f.distance, span: 100, maxBlur: f.maxBlur, scale };
 }
-export const FOCUS_BANDS = 4;
 export function sampleFocus(
-  focus: { depth: number; distance: number; span: number },
-  x: number,
-  y: number,
+  focus: { depth: number; distance: number; span: number; maxBlur?: number; scale?: number },
+  _x: number,
+  _y: number,
 ): number {
-  return focus.distance + x * 0.001 + y * 0.001;
+  return Math.abs(focus.depth - focus.distance);
 }
-export function focusMask(_focus: unknown, _width: number, _height: number, _band: number) {
-  const stops = Array.from({length: FOCUS_BANDS + 1}, (_, i) => i === _band ? 1 : 0);
-  return { stops, xWeight: 0.5, yWeight: 0.5 };
+export function focusMask(_focus: unknown, _width: number, _height: number, band: number) {
+  const stops = Array.from({length: FOCUS_BANDS + 1}, (_, i) => i === band ? 1 : 0);
+  return { stops, xWeight: 0.5, yWeight: 0.5, reverseX: false, reverseY: false };
 }
 export function uniformFocusBlur(
-  distanceOrFocus: number | { depth: number; distance: number; span: number },
+  distanceOrFocus: number | { depth: number; distance: number; span: number; maxBlur?: number; scale?: number },
   span: number,
-  focusInput: unknown,
+  focusInputOrMaxBlur?: unknown,
 ): number | undefined {
   if (typeof distanceOrFocus === "object" && distanceOrFocus !== null) {
     const f = distanceOrFocus;
-    return Math.abs(f.depth - f.distance);
+    const diff = f.distance;
+    const maxBlur = typeof focusInputOrMaxBlur === "number" ? focusInputOrMaxBlur : (f.maxBlur ?? 6);
+    const normalized = Math.min(1, diff / 100);
+    return Number((normalized * maxBlur).toFixed(2));
   }
-  const distance = distanceOrFocus;
-  const { distance: focalDistance, maxBlur } =
-    FocusSchema.parse(focusInput);
-  const diff = Math.abs(distance - focalDistance);
-  const normalized = Math.min(1, diff / Math.max(span, 100));
+  const diff = distanceOrFocus;
+  const parsedFocus = FocusSchema.safeParse(focusInputOrMaxBlur);
+  const maxBlur = parsedFocus.success ? parsedFocus.data.maxBlur : (typeof focusInputOrMaxBlur === "number" ? focusInputOrMaxBlur : 6);
+  const normalized = Math.min(1, diff / 100);
   return Number((normalized * maxBlur).toFixed(2));
 }

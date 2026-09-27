@@ -6,17 +6,12 @@ import { executeProjectCommand } from "../project/commands";
 import { executeRecipeCommand, type RecipeCommandResult } from "../project/recipes";
 import type { ProjectResult } from "../core/project";
 
-/** SOURCE OF TRUTH: runCli adapter.
- * WHAT: translate terminal arguments into canonical project operations and format results.
- * WHY: installation policy and side effects remain behind the project command boundary.
- * WHERE: cli/main invokes this adapter; project/commands validates and executes requests.
- */
 type Environment = { root: string; port?: string; terminal?: TerminalOptions; progress?: (text: string) => void };
 type Execute = typeof executeProjectCommand;
 export type CliResult = { code: number; stdout: string; stderr: string };
 const usage = `${SEENE_BRAND.title} — cinematic 3D motion from your real application UI.
 ${SEENE_BRAND.url}
-Start with npx seene guide to learn spatial composition, camera, focus and motion.
+Start with pnpm exec seene guide to learn spatial composition, camera, focus and motion.
 
 seene --version
 seene guide [--json]
@@ -41,7 +36,7 @@ function output(result: ProjectResult, json: boolean, onboarding?: { terminal?: 
   if (!result.success) return { code: 1, stdout: "", stderr: json ? JSON.stringify(result) + "\n" : result.issues.map(i => `${i.code}${i.path ? ` (${i.path})` : ""}: ${i.message}`).join("\n") + "\n" };
   if (onboarding && !json) return {code:0, stdout:formatOnboarding(result, onboarding.terminal, !onboarding.streamed), stderr:""};
   const message = result.data.url ?? (result.data.project
-    ? `Project ${result.data.integration?.kind === "react" ? "connection generated" : "ready"}: ${result.data.project.entry}${result.data.changed ? " (initialized)" : ""}.\nUse your running dev server, or start it with npm run dev. Then run npx seene open --url <origin printed by your app>.`
+    ? `Project ${result.data.integration?.kind === "react" ? "connection generated" : "ready"}: ${result.data.project.entry}${result.data.changed ? " (initialized)" : ""}.\nUse your running dev server, or start it with the dev script declared by this project. Then run pnpm exec seene open --url <origin printed by your app>.`
     : "Project command completed.");
   const next = "\nScene authoring: use the Seene studio inspector to compose animations.";
   return { code: 0, stdout: (json ? JSON.stringify(result) : `${SEENE_BRAND.title}\n${SEENE_BRAND.url}\n${message}${result.data.integration ? "\n" + result.data.integration.instructions : ""}${next}`) + "\n", stderr: "" };
@@ -86,7 +81,7 @@ export async function runCli(argv: string[], environment: Environment, execute: 
   if (flags.has("--package") && command !== "init") return fail("--package is only valid for init.");
   if (flags.has("--scene") && !["load", "open", "snapshot"].includes(command)) return fail("--scene is only valid for load, open or snapshot.");
   if (["load", "validate", "scenes", "sync"].includes(command) && (flags.has("--url") || flags.has("--no-open"))) return fail("Preview options require init or open.");
-  if (command === "init" && flags.has("--no-open") && !flags.has("--url")) return fail("init --no-open requires --url. To initialize without opening a browser, run npx seene init.");
+  if (command === "init" && flags.has("--no-open") && !flags.has("--url")) return fail("init --no-open requires --url. To initialize without opening a browser, run pnpm exec seene init.");
   const context = { root: flags.get("--project") as string ?? environment.root };
   const json = flags.has("--json");
   if(command==="snapshot"){

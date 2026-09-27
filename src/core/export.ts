@@ -1,10 +1,5 @@
 import { z } from "zod";
 
-/** SOURCE OF TRUTH: ExportVideoSchema, CaptureManifestSchema.
- * WHAT: runtime contracts for local video requests and the live browser capture bridge.
- * WHY: adapters and operations share validation without importing Node or motion policy.
- * WHERE: export/commands validates; export/services captures; React supplies the bridge.
- */
 export const SUPPORTED_EXPORT_FPS = Object.freeze([30, 60, 120] as const);
 export const ExportFrameRateSchema = z.union(SUPPORTED_EXPORT_FPS.map(fps => z.literal(fps)));
 export const ExportVideoSchema = z.strictObject({
@@ -20,7 +15,7 @@ export const ExportVideoSchema = z.strictObject({
 export const CaptureManifestSchema = z.strictObject({
   version: z.literal(1),
   durationMs: z.number().nonnegative().max(120_000),
-  selector: z.literal('[data-flute-capture="scene"]'),
+  selector: z.literal('[data-seene-capture="scene"]'),
 });
 export const ExportVideoResultSchema = z.discriminatedUnion("success", [
   z.strictObject({ success: z.literal(true), data: z.strictObject({

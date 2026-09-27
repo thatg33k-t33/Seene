@@ -1,11 +1,6 @@
 import { SEENE_BRAND } from "../core/branding";
 import type { ProjectResult } from "../core/project";
 
-/** SOURCE OF TRUTH: terminal presentation, Amethyst onboarding.
- * WHAT: render the approved wordmark and confirmed project results for human readers.
- * WHY: presentation never guesses setup progress, framework policy, URLs or agent instructions.
- * WHERE: runCli supplies canonical results; main supplies terminal capabilities and package version.
- */
 export type TerminalOptions = { interactive?: boolean; colorDepth?: number; columns?: number; unicode?: boolean; version?: string };
 const wordmark = `███████╗██╗     ██╗   ██╗████████╗███████╗
 ██╔════╝██║     ██║   ██║╚══██╔══╝██╔════╝
@@ -13,7 +8,7 @@ const wordmark = `███████╗██╗     ██╗   ██╗█
 ██╔══╝  ██║     ██║   ██║   ██║   ██╔══╝  
 ██║     ███████╗╚██████╔╝   ██║   ███████╗
 ╚═╝     ╚══════╝ ╚═════╝    ╚═╝   ╚══════╝`;
-// Strip terminal control sequences from host-derived strings before applying our own ANSI.
+
 export function terminalText(value: string): string {
   return value.replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, "")
     .replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "")
@@ -32,7 +27,7 @@ export function terminalWelcome(options: TerminalOptions = {}): string {
   const title = large
     ? wordmark.split("\n").map(line => "  " + line.split(/([╔╗╚╝═║]+)/).map(part => paint(part, /^[╔╗╚╝═║]+$/.test(part) ? "shadow" : "face")).join("")).join("\n")
     : paint(SEENE_BRAND.name, "face");
-  return `\n${title}\n\n${paint(SEENE_BRAND.title, "accent")}  ${paint("v" + (options.version ?? "development"), "quiet")}\n${paint(SEENE_BRAND.url, "quiet")}\n\nTurn your React UI into cinematic 3D mockups.\n\n`;
+  return `\n${title}\n\n${paint(SEENE_BRAND.title, "accent")}  ${paint("v" + (options.version ?? "development"), "quiet")}\n${paint(SEENE_BRAND.url, "quiet")}\n\nTurn your React UI into cinematic 3D scenes.\n\n`;
 }
 export function formatOnboarding(result: Extract<ProjectResult, { success: true }>, options: TerminalOptions = {}, includeWelcome = true): string {
   const { project, changed, integration, handoff, url } = result.data;

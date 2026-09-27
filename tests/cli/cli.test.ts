@@ -10,7 +10,7 @@ describe("CLI adapter", () => {
   it("has side-effect-free help", async () => {
     const execute = vi.fn();
     const help = (await runCli(["--help"], context, execute)).stdout;
-    for (const text of ["npx seene init", SEENE_BRAND.title, SEENE_BRAND.url, "--package is optional", "SEENE.md"])
+    for (const text of ["pnpm exec seene init", SEENE_BRAND.title, SEENE_BRAND.url, "--package is optional", "SEENE.md"])
       expect(help).toContain(text);
     expect(execute).not.toHaveBeenCalled();
   });
@@ -51,7 +51,7 @@ describe("CLI adapter", () => {
 });
 
 describe("studio onboarding CLI", () => {
-  const handoff = { path: "SEENE.md" as const, guideCommand: "npx seene guide --json" as const,
+  const handoff = { path: "SEENE.md" as const, guideCommand: "pnpm exec seene guide --json" as const,
     guideVersion: RESOURCES["authoring-guide"]().version,
     prompt: "Open the Seene studio." };
   const initialized: ProjectResult = { success: true, data: { ...ready.success && ready.data, changed: true, handoff } };

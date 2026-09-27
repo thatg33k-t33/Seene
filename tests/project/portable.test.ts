@@ -20,8 +20,8 @@ async function host(kind="next-app",react="19.1.0"){
 async function run(root:string,operation="init-project",input:unknown={}){return command(operation,input,{root});}
 function success(value:Awaited<ReturnType<typeof run>>){expect(value,JSON.stringify(value)).toHaveProperty("success",true);if(!value.success)throw Error(JSON.stringify(value));return value.data;}
 async function scene(root:string,id="one"){
- await put(root,"src/flute/scenes/"+id+".scene.json",JSON.stringify({version:1,id,title:id,definition:{scene:{nodes:[{id:"ui"}]}}}));
- await put(root,"src/flute/scenes/"+id+".jsx",'export default function Scene(){return null}');
+ await put(root,"src/seene/scenes/"+id+".scene.json",JSON.stringify({version:1,id,title:id,definition:{scene:{nodes:[{id:"ui"}]}}}));
+ await put(root,"src/seene/scenes/"+id+".jsx",'export default function Scene(){return null}');
 }
 afterEach(async()=>{vi.restoreAllMocks();await Promise.all(roots.splice(0).map(root=>rm(root,{recursive:true,force:true})));});
 describe("portable host connections",()=>{
@@ -31,8 +31,8 @@ describe("portable host connections",()=>{
   expect(success(await run(root)).changed).toBe(false);
   expect(success(await run(root,"validate-project")).project).toEqual(first.project);
   expect(await readFile(path.join(root,"package.json"),"utf8")).toBe(pkg);
-  expect((await readdir(path.join(root,".flute"))).sort()).toEqual(["integration.json","project.json"]);
-  const wrapper=await readFile(path.join(root,"src/flute/ProjectPreview.jsx"),"utf8");
+  expect((await readdir(path.join(root,".seene"))).sort()).toEqual(["integration.json","project.json"]);
+  const wrapper=await readFile(path.join(root,"src/seene/ProjectPreview.jsx"),"utf8");
   expect(wrapper).not.toMatch(/import\.meta|process\.|next\//);
   expect(wrapper).toContain('from "@thatg33k/seene/preview"');
  });
@@ -40,37 +40,37 @@ describe("portable host connections",()=>{
   const root=await host("custom",react);success(await run(root));expect(await readdir(root)).not.toContain("vite.config.ts");
  });
  it("rejects an incompatible React renderer before writes",async()=>{
-  const root=await host("custom","17.0.2");expect(await run(root)).toMatchObject({success:false,issues:[{code:"missing-installation"}]});expect(await readdir(root)).not.toContain(".flute");
+  const root=await host("custom","17.0.2");expect(await run(root)).toMatchObject({success:false,issues:[{code:"missing-installation"}]});expect(await readdir(root)).not.toContain(".seene");
  });
  it("can explicitly use the generic connection in any Next host",async()=>{
   const root=await host();const result=success(await run(root,"init-project",{adapter:"react"}));expect(result.integration?.kind).toBe("react");expect(await readdir(path.join(root,"app"))).toEqual(["layout.tsx"]);
  });
  it("preserves route collisions and symlinks",async()=>{
-  const root=await host();await put(root,"app/flute/page.tsx","owned");expect(await run(root)).toMatchObject({success:false,issues:[{code:"conflict"}]});expect(await readdir(root)).not.toContain(".flute");
-  await rm(path.join(root,"app/flute/page.tsx"));await symlink(path.join(root,"app/layout.tsx"),path.join(root,"app/flute/page.jsx"));
+  const root=await host();await put(root,"app/seene/page.tsx","owned");expect(await run(root)).toMatchObject({success:false,issues:[{code:"conflict"}]});expect(await readdir(root)).not.toContain(".seene");
+  await rm(path.join(root,"app/seene/page.tsx"));await symlink(path.join(root,"app/layout.tsx"),path.join(root,"app/seene/page.jsx"));
   expect(await run(root)).toMatchObject({success:false,issues:[{code:"denied-path"}]});
  });
  it("refuses edited managed files and unrelated handoff documents",async()=>{
   const root=await host();await put(root,"SEENE.md","mine");expect(await run(root)).toMatchObject({success:false,issues:[{code:"conflict"}]});
-  await rm(path.join(root,"SEENE.md"));success(await run(root));await put(root,"src/flute/ProjectPreview.jsx","edited");
+  await rm(path.join(root,"SEENE.md"));success(await run(root));await put(root,"src/seene/ProjectPreview.jsx","edited");
   expect(await run(root,"validate-project")).toMatchObject({success:false,issues:[{code:"conflict"}]});
  });
  it("uses the canonical catalog, supports JSX and refuses ambiguous bindings",async()=>{
   const root=await host();success(await run(root));await scene(root);success(await run(root,"sync-project"));
-  expect(await readFile(path.join(root,"src/flute/catalog.js"),"utf8")).toContain('./scenes/one');
+  expect(await readFile(path.join(root,"src/seene/catalog.js"),"utf8")).toContain('./scenes/one');
   expect(success(await run(root,"sync-project")).changed).toBe(false);success(await run(root));
-  await put(root,"src/flute/scenes/one.tsx","export default function Scene(){return null}");
+  await put(root,"src/seene/scenes/one.tsx","export default function Scene(){return null}");
   expect(await run(root,"sync-project")).toMatchObject({success:false,issues:[{code:"invalid-scenes"}]});
  });
  it("recovers interrupted additive init without replacing existing files",async()=>{
   const root=await host();const actual=services.atomicWrite;let failed=false;
-  vi.spyOn(services,"atomicWrite").mockImplementation(async(...args)=>{if(args[1]==="src/flute/Studio.jsx"&&!failed){failed=true;throw Error("interrupted");}return actual(...args)});
+  vi.spyOn(services,"atomicWrite").mockImplementation(async(...args)=>{if(args[1]==="src/seene/Studio.jsx"&&!failed){failed=true;throw Error("interrupted");}return actual(...args)});
   expect((await run(root)).success).toBe(false);success(await run(root));success(await run(root,"validate-project"));
  });
  it("recovers an interrupted catalog ownership update",async()=>{
   const root=await host();success(await run(root));await scene(root);
   const actual=services.atomicWrite;let failed=false;
-  vi.spyOn(services,"atomicWrite").mockImplementation(async(...args)=>{if(args[1]===".flute/integration.json"&&!failed){failed=true;throw Error("interrupted");}return actual(...args)});
+  vi.spyOn(services,"atomicWrite").mockImplementation(async(...args)=>{if(args[1]===".seene/integration.json"&&!failed){failed=true;throw Error("interrupted");}return actual(...args)});
   expect((await run(root,"sync-project")).success).toBe(false);success(await run(root,"sync-project"));success(await run(root,"validate-project"));
  });
 });

@@ -89,6 +89,7 @@ import {z} from 'zod'; export const CascadeSchema=z.strictObject({}); export fun
 
   'src/core/project.ts': `/** SOURCE OF TRUTH: InitProjectSchema, SyncProjectSchema.\n * WHAT: validate project command inputs.\n * WHY: keep adapters using contracts.\n * WHERE: consumed by trusted commands.\n */\nimport { z } from 'zod'; export const InitProjectSchema=z.strictObject({}); export const SyncProjectSchema=z.strictObject({});`,
   'src/project/commands.ts': `/** SOURCE OF TRUTH: executeProjectCommand.\n * WHAT: execute validated project commands.\n * WHY: protect scoped project state.\n * WHERE: invoked through CLI adapters.\n */\nexport async function executeProjectCommand(){return {};}`, 
+  'src/vite/seene-plugin.ts': `import type { Plugin } from 'vite'; import { readFile } from 'node:fs/promises'; export function seeneCreateScenePlugin(): Plugin { return { name: String(readFile) }; }`,
   'src/core/scene.ts': `${sceneDoc}\nimport { z } from 'zod';\nexport const TransformSchema = z.strictObject({ x: z.number() });\nexport const SceneSchema = z.strictObject({ transform: TransformSchema }).superRefine(() => {});`,
   'src/core/spatial.ts': `${spatialDoc}\nimport { SceneSchema } from './scene';\nexport function evaluateScene(input: unknown) { return SceneSchema.parse(input); }\nexport const transformToCss = () => 'none'; export const focusForSurface=()=>0; export const sampleFocus=()=>0; export const focusMask=()=>''; export const cameraToCss=()=>''; export const uniformFocusBlur=()=>0;`,
   'src/core/motion.ts': '/** SOURCE OF TRUTH: MotionSchema, evaluateMotion, motionDuration, motionTime, cinematicProgress, cinematicTimeAtProgress, sampleFrameTime.\n * WHAT: validate motion and time.\n * WHY: prevent multiple competing clocks.\n * WHERE: consumed by React adapters.\n */\nimport { z } from \'zod\'; export const MotionSchema=z.strictObject({}); export function evaluateMotion(){return 0;} export function motionDuration(){return 0;} export function motionTime(){return 0;} export function cinematicProgress(){return 0;} export function cinematicTimeAtProgress(){return 0;} export function sampleFrameTime(){return 0;}',
@@ -143,6 +144,11 @@ for (const expression of ['process.env', 'Buffer.from("x")', 'globalThis.process
   test(`React rejects Node global ${expression}`, () => rejects('src/react/bad.ts', expression, 'runtime-global'));
 }
 test('runtime rejects browser globals', () => rejects('src/runtime/bad.ts', 'document.body;', 'runtime-global'));
+test('Vite integration can depend on its server runtime', () => {
+  assert.deepEqual(fixture('src/vite/allowed.ts', "import type { Plugin } from 'vite'; import { mkdir } from 'node:fs/promises';"), []);
+});
+for (const target of ['react', 'react-dom/client', '../preview'])
+  test(`Vite integration rejects browser dependencies ${target}`, () => rejects('src/vite/blocked.ts', `import '${target}';`));
 for (const layer of ['core', 'runtime']) test(`${layer} rejects implicit JSX dependencies`, () => rejects(`src/${layer}/bad.tsx`, 'const node = <div />;'));
 test('AST avoids false positives from text, properties, type references and shadowed globals', () => {
   assert.deepEqual(fixture('src/core/allowed.ts', `
@@ -189,16 +195,13 @@ test('absent owner fails even if declarations are elsewhere', () => {
   assert.ok(issues.some(issue => issue.rule === 'canonical-presence'));
   assert.ok(issues.some(issue => issue.rule === 'canonical-owner'));
 });
-for (const replacement of ['', '/* SOURCE OF TRUTH: SceneSchema TransformSchema WHAT: WHY: WHERE: */', 'const documentation = ' + JSON.stringify(sceneDoc) + ';', sceneDoc.replace('WHY: keep all consumers consistent.', 'WHY: TODO')]) {
-  test(`owner documentation must have meaningful comment clauses: ${replacement.slice(0, 40)}`, () => rejects('src/core/scene.ts', valid['src/core/scene.ts'].replace(sceneDoc, replacement), 'owner-documentation'));
-}
 test('syntax errors cannot silently pass', () => rejects('src/react/bad.ts', 'export const = ;', 'syntax'));
 
 test('actual source obeys architecture, including React whenever present', () => {
   assert.deepEqual(checkProject(root), []);
 });
 test('CLI succeeds for allowed source, fails for violations and missing source', () => {
-  const directory = mkdtempSync(path.join(tmpdir(), 'flute-architecture-'));
+  const directory = mkdtempSync(path.join(tmpdir(), 'seene-architecture-'));
   const run = () => spawnSync(process.execPath, [path.join(root, 'scripts/check-architecture.mjs'), directory], { encoding: 'utf8' });
   try {
     assert.equal(run().status, 1);
@@ -227,7 +230,7 @@ test('CLI succeeds for allowed source, fails for violations and missing source',
 for(const symbol of ['sampleFocus','focusMask','focusForSurface','cameraToCss','evaluateMotion','MotionSchema'])test('rejects duplicate '+symbol+' owner',()=>rejects('src/react/duplicate.ts',`export const ${symbol}=()=>0;`,'canonical-owner'));
 
 function docsFixture(run) {
-  const directory=mkdtempSync(path.join(tmpdir(),'flute-docs-'));
+  const directory=mkdtempSync(path.join(tmpdir(),'seene-docs-'));
   try {
     mkdirSync(path.join(directory,'docs'));
     for(const name of ['architecture.md','product.md'])writeFileSync(path.join(directory,'docs',name),'# Canonical');

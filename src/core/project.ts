@@ -1,10 +1,5 @@
 import { z } from "zod";
 
-/** SOURCE OF TRUTH: InitProjectSchema, SyncProjectSchema, project command contracts.
- * WHAT: inputs and results exchanged by local project adapters and trusted commands.
- * WHY: adapters share runtime validation without importing filesystem or process code.
- * WHERE: RESOURCES binds input schemas; project/commands executes them; cli presents results.
- */
 export const InitProjectSchema = z.strictObject({
   packageSource: z.string().min(1).optional(),
   adapter: z.enum(["auto", "react"]).optional(),
@@ -23,7 +18,7 @@ export const ProjectStateSchema = z.strictObject({
   version: z.literal(1),
   projectId: z.uuid(),
   entry: z.string().min(1),
-  packageManager: z.literal("npm"),
+  packageManager: z.enum(["npm", "pnpm", "yarn", "bun"]),
   adapter: z.enum(["next-app", "next-pages", "react"]).optional(),
 });
 export const ProjectResultSchema = z.discriminatedUnion("success", [
@@ -31,7 +26,7 @@ export const ProjectResultSchema = z.discriminatedUnion("success", [
     project:ProjectStateSchema.optional(),url:z.string().optional(),changed:z.boolean().optional(),
     integration:z.strictObject({kind:z.string(),component:z.string(),route:z.string().optional(),instructions:z.string()}).optional(),
     handoff:z.strictObject({
-      path:z.literal("SEENE.md"), guideCommand: z.enum(["npx seene guide --json", "pnpm exec seene guide --json"]),
+      path:z.literal("SEENE.md"), guideCommand: z.enum(["pnpm exec seene guide --json", "pnpm exec seene guide --json"]),
       guideVersion:z.number().int().positive(), prompt:z.string().min(1),
     }).optional(),
   })}),

@@ -4,6 +4,6 @@ packages:
   - "apps/*"
   - "packages/*"
 allowBuilds:
-  esbuild: set this to true or false
+  esbuild: true
 minimumReleaseAgeExclude:
   - lucide-react@1.48.0
