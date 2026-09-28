@@ -1,5 +1,6 @@
+import { useEffect, useRef, useState } from "react";
 import {
-  PLATFORM_API_PREFIX, type PlatformCatalog, type PlatformContent, type PlatformProject,
+  PLATFORM_API_PREFIX, SEENE_PROTOCOL_VERSION, isAllowedDevOrigin, type PlatformCatalog, type PlatformContent, type PlatformProject,
   type PlatformStatus,
 } from "../core/platform";
 
@@ -30,6 +31,8 @@ export const platformApi = {
   status: (target: string, origin: string) => request<PlatformStatus>(`${PLATFORM_API_PREFIX}/projects/status?path=${encodeURIComponent(target)}&origin=${encodeURIComponent(origin)}`),
   createScene: (draft: { path: string; id: string; title: string; description?: string; content?: { file: string; export?: string } }) =>
     request<SceneResponse>(`${PLATFORM_API_PREFIX}/projects/scenes`, body(draft)),
+  duplicateScene: (target: string, id: string, newId: string) =>
+    request<CatalogResponse>(`${PLATFORM_API_PREFIX}/projects/scenes/duplicate`, body({ path: target, id, newId })),
   removeScene: (target: string, id: string) => request<CatalogResponse>(`${PLATFORM_API_PREFIX}/projects/scenes`, { ...body({ path: target, id }), method: "DELETE" }),
 };
 
@@ -37,9 +40,13 @@ export type Route =
   | { view: "projects" }
   | { view: "studio"; project: string }
   | { view: "settings"; project: string }
-  | { view: "present"; project: string; scene: string };
+  | { view: "present"; project: string; scene: string }
+  | { view: "login" }
+  | { view: "signup" };
 
 export const PROJECTS_ROUTE = "#/projects";
+export const LOGIN_ROUTE = "#/login";
+export const SIGNUP_ROUTE = "#/signup";
 export function studioHref(project: string): string { return `#/projects/${encodeURIComponent(project)}`; }
 export function settingsHref(project: string): string { return `${studioHref(project)}/settings`; }
 export function presentHref(project: string, scene: string): string { return `#/present/${encodeURIComponent(project)}/${encodeURIComponent(scene)}`; }
@@ -47,6 +54,8 @@ export function presentHref(project: string, scene: string): string { return `#/
 export function readRoute(hash: string): Route {
   const parts = hash.replace(/^#\/?/, "").split("/");
   const [head] = parts;
+  if (head === "login") return { view: "login" };
+  if (head === "signup") return { view: "signup" };
   if (head === "projects" && typeof parts[1] === "string" && parts[1]) {
     const project = decodeURIComponent(parts[1]);
     if (parts[2] === "settings") return { view: "settings", project };
@@ -54,4 +63,110 @@ export function readRoute(hash: string): Route {
   }
   if (head === "present" && parts[1] && parts[2]) return { view: "present", project: decodeURIComponent(parts[1]), scene: decodeURIComponent(parts[2]) };
   return { view: "projects" };
+}
+
+export type StudioApplicationError = { message: string; source?: string; stack?: string; href?: string };
+
+export function useStudioBridge(projectPath: string | undefined, active: boolean) {
+  const [liveConnected, setLiveConnected] = useState(false);
+  const [clientMeta, setClientInfo] = useState<{ projectId?: string; href?: string } | null>(null);
+  const [applicationError, setApplicationError] = useState<StudioApplicationError | null>(null);
+  const lastHeartbeat = useRef<number>(0);
+  const clientWindow = useRef<Window | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !active) {
+      setLiveConnected(false);
+      return;
+    }
+
+    setLiveConnected(false);
+    setClientInfo(null);
+    setApplicationError(null);
+    clientWindow.current = null;
+
+    const handleMessage = (event: MessageEvent) => {
+      if (!event.data || typeof event.data !== "object") return;
+      const data = event.data as { type?: string; version?: number; projectId?: string; href?: string; message?: string; source?: string; stack?: string };
+      if (!data.type || !data.type.startsWith("SEENE_CLIENT_")) return;
+
+      if (!isAllowedDevOrigin(event.origin)) return;
+
+      lastHeartbeat.current = Date.now();
+      setLiveConnected(true);
+      setClientInfo({ projectId: data.projectId, href: data.href });
+      if (event.source && "postMessage" in event.source) {
+        clientWindow.current = event.source as Window;
+      }
+
+      if (data.type === "SEENE_CLIENT_APPLICATION_ERROR" && typeof data.message === "string" && data.message) {
+        setApplicationError({
+          message: data.message,
+          ...(typeof data.source === "string" ? { source: data.source } : {}),
+          ...(typeof data.stack === "string" ? { stack: data.stack } : {}),
+          ...(typeof data.href === "string" ? { href: data.href } : {}),
+        });
+      }
+
+      if (data.type === "SEENE_CLIENT_HELLO" && clientWindow.current) {
+        try {
+          clientWindow.current.postMessage(
+            { type: "SEENE_STUDIO_ACK", version: SEENE_PROTOCOL_VERSION, projectId: projectPath },
+            "*"
+          );
+        } catch {}
+      }
+
+      if (data.type === "SEENE_CLIENT_CREATE_SCENE" && (data as any).draft && projectPath) {
+        const draft = (data as any).draft;
+        void platformApi.createScene({
+          path: projectPath,
+          id: draft.id,
+          title: draft.title,
+          description: draft.description,
+        }).then(() => {
+          if (event.source && "postMessage" in event.source) {
+            (event.source as Window).postMessage(
+              { type: "SEENE_STUDIO_SCENE_CREATED", version: SEENE_PROTOCOL_VERSION, id: draft.id, success: true },
+              "*"
+            );
+          }
+        }).catch(err => {
+          if (event.source && "postMessage" in event.source) {
+            (event.source as Window).postMessage(
+              { type: "SEENE_STUDIO_SCENE_CREATED", version: SEENE_PROTOCOL_VERSION, id: draft.id, success: false, error: err?.message },
+              "*"
+            );
+          }
+        });
+      }
+    };
+
+    window.addEventListener("message", handleMessage);
+
+    const timer = setInterval(() => {
+      if (lastHeartbeat.current > 0 && Date.now() - lastHeartbeat.current > 15000) {
+        setLiveConnected(false);
+      }
+    }, 5000);
+
+    const pingInterval = setInterval(() => {
+      if (clientWindow.current && lastHeartbeat.current > 0) {
+        try {
+          clientWindow.current.postMessage(
+            { type: "SEENE_STUDIO_PING", version: SEENE_PROTOCOL_VERSION, projectId: projectPath },
+            "*"
+          );
+        } catch {}
+      }
+    }, 10000);
+
+    return () => {
+      window.removeEventListener("message", handleMessage);
+      clearInterval(timer);
+      clearInterval(pingInterval);
+    };
+  }, [projectPath, active]);
+
+  return { liveConnected, clientMeta, applicationError };
 }

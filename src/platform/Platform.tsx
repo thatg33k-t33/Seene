@@ -1,30 +1,39 @@
-import { SEENE_BRAND } from "../core/branding";
+import { AuthView } from "./AuthView";
 import { ProjectsView } from "./ProjectsView";
 import { SettingsView } from "./SettingsView";
 import { StudioView } from "./StudioView";
 import { PresentationView } from "./PresentationView";
 import { PROJECTS_ROUTE } from "./api";
 import { useHashRoute } from "./data";
+import { SiteHeader, useSiteShortcuts } from "./site";
+import { useState } from "react";
 
 export function Platform() {
   const route = useHashRoute();
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  useSiteShortcuts();
   return (
-    <div className="min-h-screen bg-[#111114] text-[#f1f1f4]">
-      <header className="border-b border-[#222228] bg-[#111114]/95 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-4">
-          <a className="flex items-baseline gap-3" href={PROJECTS_ROUTE}>
-            <span className="text-lg font-semibold tracking-tight text-[#f1f1f4]">{SEENE_BRAND.name}</span>
-            <span className="hidden text-xs text-[#55555d] sm:inline">Cinematic presentations for real React interfaces</span>
-          </a>
-          <a className="font-mono text-xs text-[#85858e] transition-colors hover:text-[#f1f1f4]" href={PROJECTS_ROUTE}>Projects</a>
-        </div>
-      </header>
+    <div className="min-h-screen bg-[var(--seene-bg)] text-[var(--seene-text)]">
+      <SiteHeader onPalette={() => setPaletteOpen(true)} />
       <main>
+        {route.view === "login" && <AuthView mode="login" />}
+        {route.view === "signup" && <AuthView mode="signup" />}
         {route.view === "projects" && <ProjectsView />}
         {route.view === "studio" && <StudioView project={route.project} />}
         {route.view === "settings" && <SettingsView project={route.project} />}
         {route.view === "present" && <PresentationView project={route.project} scene={route.scene} />}
       </main>
+      {paletteOpen && (
+        <div role="dialog" aria-modal="true" aria-label="Command menu" className="fixed inset-0 z-[70] flex items-start justify-center bg-black/40 p-4 pt-24" onClick={() => setPaletteOpen(false)}>
+          <div className="w-full max-w-md rounded-md border border-[var(--seene-border)] bg-[var(--seene-surface)] p-2 shadow-xl" onClick={event => event.stopPropagation()}>
+            <input autoFocus className="h-9 w-full rounded-sm border border-[var(--seene-border)] px-3 text-sm" placeholder="Type a command…" aria-label="Command menu" onKeyDown={event => { if (event.key === "Escape") setPaletteOpen(false); }} />
+            <div className="mt-2 grid gap-1">
+              <a className="seene-nav-item" href={PROJECTS_ROUTE} onClick={() => setPaletteOpen(false)}>Go to projects</a>
+              <button type="button" className="seene-nav-item" onClick={() => { void navigator.clipboard?.writeText("npm i -g @thatg33k/seene"); setPaletteOpen(false); }}>Copy install command</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
