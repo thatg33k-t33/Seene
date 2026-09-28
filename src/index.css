@@ -1,19 +1,192 @@
 @import "tailwindcss";
 
 :root {
-  --seene-bg: #111114;
-  --seene-surface: #1a1a1f;
-  --seene-surface-2: #222228;
-  --seene-border: #303038;
-  --seene-text: #f1f1f4;
-  --seene-text-muted: #85858e;
+  --seene-bg: #ffffff;
+  --seene-surface: #ffffff;
+  --seene-surface-2: #f6f7f9;
+  --seene-border: #e4e7ee;
+  --seene-border-text: #c3c9d6;
+  --seene-text: #12151c;
+  --seene-text-muted: #5b6476;
+  --seene-accent: hsl(219 93% 42%);
+  --seene-accent-hover: hsl(219 93% 35%);
+  --seene-accent-edge: hsl(219 93% 30%);
+  --seene-accent-soft: hsl(219 93% 95%);
+  --seene-cream: #faf7ef;
+  --seene-offgray-50: #f6f7f9;
+  --seene-offgray-100: #e9ecf2;
+  --seene-offgray-200: #d7dce6;
+  --seene-nav-bg: rgba(255, 255, 255, 0.9);
+  --seene-font-ui: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --seene-font-heading: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+  --seene-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --seene-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --seene-bg: hsl(219 92% 2%);
+    --seene-surface: #0d1119;
+    --seene-surface-2: #141a26;
+    --seene-border: #1d2637;
+    --seene-border-text: #2b3a52;
+    --seene-text: #eef1f6;
+    --seene-text-muted: #9aa4b8;
+    --seene-accent-soft: rgba(0, 0, 0, 0.4);
+    --seene-cream: #0d1119;
+    --seene-offgray-50: #141a26;
+    --seene-offgray-100: #1d2637;
+    --seene-offgray-200: #2b3a52;
+    --seene-nav-bg: rgba(4, 7, 13, 0.88);
+  }
 }
 
 body {
   background-color: var(--seene-bg);
   color: var(--seene-text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--seene-font-ui);
+  letter-spacing: -0.01em;
   margin: 0;
   padding: 0;
   overflow-x: hidden;
 }
+
+.seene-btn {
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  letter-spacing: -0.01em;
+  border-radius: 0.25rem;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s var(--seene-ease-out), box-shadow 0.15s var(--seene-ease-out), transform 0.1s ease;
+}
+.seene-btn-nav { height: 2rem; padding: 0 0.625rem; }
+.seene-btn-cta { height: 2.25rem; padding: 0 1rem; }
+.seene-btn:focus-visible { outline: 2px solid var(--seene-accent); outline-offset: 2px; }
+.seene-btn:disabled { opacity: 0.5; pointer-events: none; }
+@media (hover: hover) and (pointer: fine) {
+  .seene-btn:active { transform: translateY(1px) scale(0.99); }
+}
+.seene-btn-primary {
+  background: var(--seene-accent);
+  color: #fff;
+  box-shadow: var(--seene-accent-edge) 0 -2px 0 0 inset, var(--seene-accent-soft) 0 1px 3px 0;
+}
+.seene-btn-primary:hover { background: var(--seene-accent-hover); box-shadow: none; }
+.seene-btn-secondary {
+  border-color: color-mix(in srgb, var(--seene-offgray-200) 55%, transparent);
+  background: color-mix(in srgb, var(--seene-surface) 50%, transparent);
+  color: var(--seene-text);
+  box-shadow: hsl(218 13% 50% / 0.1) 0 -2px 0 0 inset;
+}
+.seene-btn-secondary:hover { background: color-mix(in srgb, var(--seene-offgray-50) 55%, transparent); box-shadow: none; }
+.seene-btn-ghost { border-color: transparent; background: transparent; color: var(--seene-text); }
+.seene-btn-ghost:hover { background: color-mix(in srgb, var(--seene-offgray-50) 80%, transparent); }
+.seene-kbd {
+  display: inline-flex;
+  align-items: center;
+  height: 1.25rem;
+  padding: 0 0.375rem;
+  border-radius: 0.125rem;
+  border: 1px solid rgb(107 114 128 / 0.2);
+  background: rgb(249 250 251 / 0.5);
+  font-family: var(--seene-font-mono);
+  font-size: 0.6875rem;
+  line-height: 1;
+}
+.seene-kbd-on-primary { border-color: rgb(255 255 255 / 0.2); background: rgb(255 255 255 / 0.1); color: #fff; }
+@media (max-width: 640px) { .seene-kbd { display: none; } }
+@media (prefers-color-scheme: dark) {
+  .seene-kbd { background: rgb(255 255 255 / 0.06); color: var(--seene-text-muted); }
+  .seene-btn-primary { box-shadow: var(--seene-accent-edge) 0 -2px 0 0 inset, rgba(0, 0, 0, 0.4) 0 1px 3px 0; }
+}
+.seene-spinner {
+  width: 0.875rem; height: 0.875rem; border-radius: 999px;
+  border: 2px solid rgb(255 255 255 / 0.35); border-top-color: #fff;
+  animation: seene-spin 0.7s linear infinite;
+}
+@keyframes seene-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .seene-spinner { animation: none; }
+  .seene-btn { transition: none; }
+}
+
+.seene-frame { position: relative; border-top: 1px solid var(--seene-border); border-bottom: 1px solid var(--seene-border); }
+.seene-frame-row { display: flex; align-items: stretch; }
+.seene-gutter { width: 1rem; flex-shrink: 0; }
+@media (min-width: 640px) { .seene-gutter { width: 1.5rem; } }
+@media (min-width: 768px) { .seene-gutter { width: 3rem; } }
+.seene-gutter-left { border-right: 1px solid var(--seene-border); }
+.seene-gutter-right { border-left: 1px solid var(--seene-border); }
+.seene-rail { display: none; }
+@media (min-width: 1024px) {
+  .seene-rail { display: flex; flex-direction: column; flex: 1 1 0%; color: var(--seene-border-text); }
+}
+.seene-rail-seg-solid { background: currentColor; width: 1px; margin: 0 auto; }
+.seene-rail-seg-dashed {
+  width: 1px; margin: 0 auto;
+  background: repeating-linear-gradient(to bottom, currentColor 0 4px, transparent 4px 8px);
+}
+.seene-node {
+  position: absolute; width: 0.375rem; height: 0.375rem; transform: rotate(45deg);
+  border: 1px solid var(--seene-border-text); background: var(--seene-bg); z-index: 2;
+}
+.seene-frame-content { width: 100%; max-width: 72rem; margin: 0 auto; padding: 0 1.5rem; min-width: 0; }
+.seene-gutter-texture {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Cpath d='M10 0H0v10' fill='none' stroke='%230544c4' stroke-opacity='0.15' stroke-width='1'/%3E%3C/svg%3E");
+  background-size: 10px 10px;
+}
+@media (prefers-color-scheme: dark) {
+  .seene-gutter-texture {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Cpath d='M10 0H0v10' fill='none' stroke='%2393c5fd' stroke-opacity='0.05' stroke-width='1'/%3E%3C/svg%3E");
+  }
+}
+.seene-h2 {
+  font-family: var(--seene-font-heading);
+  color: var(--seene-accent);
+  text-wrap: balance;
+  text-align: center;
+  letter-spacing: -0.01em;
+}
+.seene-nav-item {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  height: 2rem; padding: 0 0.625rem;
+  font-size: 0.875rem; letter-spacing: -0.01em;
+  border: 1px solid transparent; border-radius: 0.25rem;
+  color: var(--seene-text); background: transparent; cursor: pointer; text-decoration: none;
+}
+.seene-nav-item:hover, .seene-nav-item[data-open="true"] { background: color-mix(in srgb, var(--seene-offgray-50) 80%, transparent); }
+.seene-nav-item:focus-visible { outline: 2px solid var(--seene-accent); outline-offset: 2px; }
+.seene-site-header {
+  position: sticky; top: 0; z-index: 50;
+  background: var(--seene-nav-bg);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--seene-border);
+  border-bottom: 1px solid var(--seene-border);
+}
+@media (min-width: 1024px) { .seene-site-header { border-top: 0; } }
+.seene-dropdown {
+  position: absolute; top: calc(100% + 6px); left: 0; min-width: 13rem;
+  border: 1px solid var(--seene-border); border-radius: 0.375rem;
+  background: var(--seene-surface); box-shadow: 0 12px 32px rgb(15 23 42 / 0.12);
+  padding: 0.375rem; z-index: 60;
+}
+.seene-dropdown a {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 0.5rem 0.625rem; border-radius: 0.25rem;
+  color: var(--seene-text); text-decoration: none; font-size: 0.875rem;
+}
+.seene-dropdown a:hover { background: color-mix(in srgb, var(--seene-offgray-50) 80%, transparent); }
+.seene-dropdown small { color: var(--seene-text-muted); font-size: 0.75rem; }
+@keyframes seene-hero-rise { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes seene-hero-drop { from { opacity: 0; transform: translateY(-100%); } to { opacity: 1; transform: translateY(0); } }
+.seene-hero-rise { animation: seene-hero-rise 0.9s var(--seene-ease-out) both; }
+.seene-hero-drop { animation: seene-hero-drop 1.6s var(--seene-ease-out) 1.4s both; }
+@media (prefers-reduced-motion: reduce) { .seene-hero-rise, .seene-hero-drop { animation: none; } }
+
+
