@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, readFile, writeFile, rm, symlink, readdir } from "node:
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createServer, type Server } from "node:http";
-import { executeProjectCommand } from "../../src/project/commands";
+import { executeProjectCommand, detectPackageManager } from "../../src/project/commands";
 import { ProjectResultSchema, type ProjectResult } from "../../src/core/project";
 import * as services from "../../src/project/services";
 import { generatedPreview, htmlEntry, inspectEntry } from "../../src/project/vite";
@@ -223,11 +223,88 @@ describe("project initialization and preview integration", () => {
     expect(result.project?.packageManager).toBe(manager);
     expect(await readFile(path.join(root, lock), "utf8")).toBe("lock");
   });
-  it("rejects conflicting package manager lockfiles before setup", async () => {
-    const root = await fixture();
-    await put(root, "pnpm-lock.yaml", "lock");
-    failure(await run(root), "unsupported-project");
-    expect(await readdir(root)).not.toContain(".seene");
+  describe("package manager and lockfile detection", () => {
+    let oldUserAgent: string | undefined;
+
+    afterEach(() => {
+      if (oldUserAgent !== undefined) process.env.npm_config_user_agent = oldUserAgent;
+      else delete process.env.npm_config_user_agent;
+    });
+
+    it("detects pnpm project with pnpm-lock.yaml", async () => {
+      const root = await fixture();
+      await rm(path.join(root, "package-lock.json"));
+      await put(root, "pnpm-lock.yaml", "lockfile");
+      const result = success(await run(root));
+      expect(result.project?.packageManager).toBe("pnpm");
+    });
+
+    it("detects npm project with package-lock.json", async () => {
+      const root = await fixture();
+      const result = success(await run(root));
+      expect(result.project?.packageManager).toBe("npm");
+    });
+
+    it("detects yarn project with yarn.lock", async () => {
+      const root = await fixture();
+      await rm(path.join(root, "package-lock.json"));
+      await put(root, "yarn.lock", "lockfile");
+      const result = success(await run(root));
+      expect(result.project?.packageManager).toBe("yarn");
+    });
+
+    it("supports pnpm project with stale package-lock.json when user agent or packageManager declares pnpm", async () => {
+      const root = await fixture();
+      await put(root, "pnpm-lock.yaml", "lockfile");
+      oldUserAgent = process.env.npm_config_user_agent;
+      process.env.npm_config_user_agent = "pnpm/9.1.0 node/v22.12.0 linux x64";
+      const result = success(await run(root));
+      expect(result.project?.packageManager).toBe("pnpm");
+    });
+
+    it("supports npm project with stale pnpm-lock.yaml when user agent or packageManager declares npm", async () => {
+      const root = await fixture();
+      await put(root, "pnpm-lock.yaml", "lockfile");
+      oldUserAgent = process.env.npm_config_user_agent;
+      process.env.npm_config_user_agent = "npm/10.2.0 node/v22.12.0 linux x64";
+      const result = success(await run(root));
+      expect(result.project?.packageManager).toBe("npm");
+    });
+
+    it("rejects genuinely conflicting lockfiles when packageManager is undeclared and active agent is ambiguous", async () => {
+      const root = await fixture();
+      await put(root, "yarn.lock", "lockfile");
+      oldUserAgent = process.env.npm_config_user_agent;
+      process.env.npm_config_user_agent = "pnpm/9.1.0 node/v22.12.0 linux x64";
+      const res = await run(root);
+      failure(res, "unsupported-project");
+      expect(JSON.stringify(res)).toContain("Conflicting package-manager lockfiles found: package-lock.json, yarn.lock");
+    });
+
+    it("supports project with no lockfile defaulting to active agent or npm", async () => {
+      const root = await fixture();
+      await rm(path.join(root, "package-lock.json"));
+      const result = success(await run(root));
+      expect(result.project?.packageManager).toBe("npm");
+    });
+
+    it("rejects unsupported project with invalid packageManager field", async () => {
+      const root = await fixture();
+      const pkg = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
+      pkg.packageManager = "invalid-pm@1.0.0";
+      await put(root, "package.json", JSON.stringify(pkg));
+      const res = await run(root);
+      failure(res, "unsupported-project");
+      expect(JSON.stringify(res)).toContain("Use npm, pnpm, Yarn, or Bun");
+    });
+
+    it("succeeds on repeated initialization", async () => {
+      const root = await fixture();
+      const first = success(await run(root));
+      expect(first.changed).toBe(true);
+      const second = success(await run(root));
+      expect(second.project?.projectId).toBe(first.project?.projectId);
+    });
   });
   it("requires a local Seene package before setup and does not mutate the host app", async () => {
     const root = await fixture({ installed: false });

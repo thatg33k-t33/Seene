@@ -8,14 +8,15 @@ import type { SceneIssue } from "../core/scene";
 import {
   PLATFORM_API_PREFIX, PLATFORM_REGISTRY_FILE, PlatformErrorSchema, PlatformProjectSchema,
   PlatformProjectsSchema, PlatformCatalogResponseSchema, PlatformContentResponseSchema,
-  PlatformSceneResponseSchema, PlatformStatusSchema, CreateSceneRequestSchema, RemoveSceneRequestSchema,
-  RegisterProjectSchema, analyzeApplicationModule, createSceneRecipe, isApplicationSourcePath, issueFor,
+  PlatformSceneResponseSchema, PlatformStatusSchema, CreateSceneRequestSchema, DuplicateSceneRequestSchema, RemoveSceneRequestSchema,
+  RegisterProjectSchema, analyzeApplicationModule, applicationRouteForContent, createSceneRecipe, isAllowedDevOrigin,
+  isApplicationSourcePath, isDocumentApplication, issueFor,
   loadProjectRegistry, platformHome, previewUrl, registryWithout, sceneComponentSource, summarizeCatalog,
   type PlatformProject, type ProjectEntry, type SceneDraft,
 } from "../core/platform";
 import { SCENE_RECIPE_DIRECTORY } from "../core/recipes";
 import {
-  PlatformFault, componentImportSpecifier, discoverApplicationContent, readSceneCatalog,
+  PlatformFault, componentImportSpecifier, discoverApplicationContent, duplicateSceneSourcePair, readSceneCatalog,
   removeSceneSourcePair, resolveProjectTarget, writeSceneSourcePair,
 } from "./scene-files";
 
@@ -196,6 +197,7 @@ function createHandler(options: { platformRoot?: string }) {
           if (request.method === "POST") {
             const input = parse<{ path: string } & SceneDraft>(CreateSceneRequestSchema, await body(request));
             const entry = await locate(input.path);
+            const { project } = await inspectProject(entry.path, entry);
             let content: { importSpecifier: string; export?: string } | undefined;
             if (input.content) {
               if (!isApplicationSourcePath(input.content.file))
@@ -210,13 +212,16 @@ function createHandler(options: { platformRoot?: string }) {
                 throw new PlatformFault("invalid-input", `${input.content.file} has no default export; choose one of its named exports instead.`);
               content = { importSpecifier: componentImportSpecifier(input.content.file), ...(input.content.export ? { export: input.content.export } : {}) };
             }
-            const recipe = createSceneRecipe({ id: input.id, title: input.title, ...(input.description ? { description: input.description } : {}) });
+            const route = input.content
+              ? applicationRouteForContent(input.content.file, input.content.export)
+              : (isDocumentApplication(project.adapter) ? "/" : undefined);
+            const recipe = createSceneRecipe({ id: input.id, title: input.title,
+              ...(input.description ? { description: input.description } : {}), ...(route ? { applicationRoute: route } : {}) });
             if (await writeSceneSourcePair(entry.path, input.id, recipe, sceneComponentSource({ id: input.id, content })) === "exists")
               throw new PlatformFault("conflict", `Scene "${input.id}" already exists in this project. Choose another name.`);
             const catalog = summarizeCatalog(await readSceneCatalog(entry.path));
             const scene = catalog.scenes.find(item => item.id === input.id);
             if (!scene) throw new PlatformFault("conflict", "The scene was written but cannot be discovered. Check the recipe and its component.");
-            const { project } = await inspectProject(entry.path, entry);
             return void send(response, 200, PlatformSceneResponseSchema.parse({ project, scene, catalog }));
           }
           if (request.method === "DELETE") {
@@ -228,6 +233,16 @@ function createHandler(options: { platformRoot?: string }) {
             return void send(response, 200, PlatformCatalogResponseSchema.parse({ project, catalog }));
           }
         }
+        if (route === "/projects/scenes/duplicate" && request.method === "POST") {
+          const input = parse<{ path: string; id: string; newId: string }>(DuplicateSceneRequestSchema, await body(request));
+          const entry = await locate(input.path);
+          const status = await duplicateSceneSourcePair(entry.path, input.id, input.newId);
+          if (status === "not-found") throw new PlatformFault("not-found", `Scene "${input.id}" is not part of this project.`);
+          if (status === "exists") throw new PlatformFault("conflict", `Scene "${input.newId}" already exists. Choose another name.`);
+          const catalog = summarizeCatalog(await readSceneCatalog(entry.path));
+          const { project } = await inspectProject(entry.path, entry);
+          return void send(response, 200, PlatformCatalogResponseSchema.parse({ project, catalog }));
+        }
         if (route === "/projects/content" && request.method === "GET") {
           const entry = await locate(requestUrl.searchParams.get("path"));
           const content = await discoverApplicationContent(entry.path);
@@ -237,8 +252,8 @@ function createHandler(options: { platformRoot?: string }) {
         if (route === "/projects/status" && request.method === "GET") {
           const entry = await locate(requestUrl.searchParams.get("path"));
           const origin = requestUrl.searchParams.get("origin") ?? "";
-          if (!loopbackOrigin.test(origin))
-            throw new PlatformFault("invalid-input", "Use the loopback origin your application prints, for example http://127.0.0.1:5173.");
+          if (!isAllowedDevOrigin(origin))
+            throw new PlatformFault("invalid-input", "Use a valid local development origin, for example http://localhost:3000 or http://127.0.0.1:5173.");
           const { project } = await inspectProject(entry.path, entry);
           const url = previewUrl(project.adapter, origin);
           let reachable = false;

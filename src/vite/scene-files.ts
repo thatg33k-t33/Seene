@@ -2,7 +2,8 @@ import { lstat, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises
 import path from "node:path";
 import { SCENE_RECIPE_DIRECTORY, type SceneCatalog, type SceneRecipe } from "../core/recipes";
 import { RESOURCES } from "../core/resources";
-import { analyzeApplicationModule, isApplicationSourcePath, type PlatformContent } from "../core/platform";
+import { analyzeApplicationModule, classifyApplicationUnit, isApplicationSourcePath, isIconOrPrimitive, sceneComponentName, type PlatformContent } from "../core/platform";
+import { portableCatalog } from "../project/portable";
 import type { SceneIssue } from "../core/scene";
 
 export class PlatformFault extends Error {
@@ -68,6 +69,19 @@ export async function readSceneCatalog(root: string, sceneId?: string): Promise<
   return { ...catalog, issues: [...issues, ...catalog.issues].sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0) };
 }
 
+export async function syncCatalog(root: string): Promise<void> {
+  const catalogPath = await resolveProjectTarget(root, "src/seene/catalog.js").catch(() => undefined);
+  if (!catalogPath) return;
+  const exists = await lstat(catalogPath).then(stat => stat.isFile(), () => false);
+  if (!exists) return;
+
+  const catalog = await readSceneCatalog(root).catch(() => undefined);
+  if (!catalog) return;
+
+  const catalogText = portableCatalog(catalog.scenes);
+  await writeFile(catalogPath, catalogText, "utf8");
+}
+
 export async function writeSceneSourcePair(root: string, id: string, recipe: SceneRecipe, componentSource: string): Promise<"created" | "exists"> {
   const directory = await resolveProjectTarget(root, SCENE_RECIPE_DIRECTORY);
   const recipePath = path.join(directory, `${id}.scene.json`);
@@ -80,6 +94,7 @@ export async function writeSceneSourcePair(root: string, id: string, recipe: Sce
     await writeFile(bindingPath, componentSource, { encoding: "utf8", flag: "wx" });
     created = true;
     await writeFile(recipePath, JSON.stringify(recipe, null, 2), { encoding: "utf8", flag: "wx" });
+    await syncCatalog(root);
     return "created";
   } catch (error) {
     if (created) await rm(bindingPath, { force: true });
@@ -94,7 +109,42 @@ export async function removeSceneSourcePair(root: string, id: string): Promise<b
   const removed = await lstat(recipePath).then(() => true, () => false);
   await rm(recipePath, { force: true });
   await rm(path.join(directory, `${id}.tsx`), { force: true });
+  if (removed) await syncCatalog(root);
   return removed;
+}
+
+export async function duplicateSceneSourcePair(root: string, id: string, newId: string): Promise<"created" | "exists" | "not-found"> {
+  const directory = await resolveProjectTarget(root, SCENE_RECIPE_DIRECTORY);
+  const recipePath = path.join(directory, `${id}.scene.json`);
+  const bindingPath = path.join(directory, `${id}.tsx`);
+  const newRecipePath = path.join(directory, `${newId}.scene.json`);
+  const newBindingPath = path.join(directory, `${newId}.tsx`);
+
+  const exists = (target: string) => lstat(target).then(() => true, () => false);
+  if (!await exists(recipePath)) return "not-found";
+  if (await exists(newRecipePath) || await exists(newBindingPath)) return "exists";
+
+  const recipeText = await readFile(recipePath, "utf8").catch(() => undefined);
+  const bindingText = await readFile(bindingPath, "utf8").catch(() => undefined);
+  if (!recipeText || !bindingText) return "not-found";
+
+  let parsed: SceneRecipe;
+  try {
+    parsed = JSON.parse(recipeText) as SceneRecipe;
+  } catch {
+    return "not-found";
+  }
+
+  parsed.id = newId;
+  parsed.title = `${parsed.title} (Copy)`;
+
+  const newBindingText = bindingText.replace(new RegExp(`\\b${sceneComponentName(id)}\\b`, "g"), sceneComponentName(newId));
+
+  await mkdir(directory, { recursive: true });
+  await writeFile(newBindingPath, newBindingText, "utf8");
+  await writeFile(newRecipePath, JSON.stringify(parsed, null, 2), "utf8");
+  await syncCatalog(root);
+  return "created";
 }
 
 export async function discoverApplicationContent(root: string, limit = 400): Promise<PlatformContent> {
@@ -110,19 +160,30 @@ export async function discoverApplicationContent(root: string, limit = 400): Pro
       const child = `${relative}/${entry.name}`;
       if (entry.isDirectory()) {
         if (child === SCENE_RECIPE_DIRECTORY || child.startsWith(SCENE_RECIPE_DIRECTORY + "/")) continue;
-        if (entry.name === "dist" || entry.name === "build") continue;
+        if (entry.name === "dist" || entry.name === "build" || entry.name === "node_modules") continue;
         await walk(child);
         continue;
       }
       if (!entry.isFile() || !isApplicationSourcePath(child)) continue;
+      if (isIconOrPrimitive(child)) continue;
       const text = await readScoped(root, child, maxSourceBytes);
       if (text === undefined) continue;
       const analysis = analyzeApplicationModule(text);
       if (!analysis.default && !analysis.exports.length) continue;
-      files.push({ path: child, default: analysis.default, exports: analysis.exports });
+      const { kind, title, route } = classifyApplicationUnit(child);
+      files.push({
+        path: child,
+        default: analysis.default,
+        exports: analysis.exports,
+        kind,
+        title,
+        route,
+      });
     }
   };
   await walk("src");
+  await walk("app");
+  await walk("pages");
   return { files: files.sort((a, b) => a.path.localeCompare(b.path)) };
 }
 

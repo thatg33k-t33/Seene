@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { PreviewDefinitionInput } from "../core";
+import { PRESENTATION_PRESETS, applyPresentationPreset, type PresentationPresetName, type PreviewDefinitionInput } from "../core/preview";
 
 export type SceneInspectorProps = {
   definition?: PreviewDefinitionInput;
@@ -44,12 +44,46 @@ export function SceneInspector({definition, onChange}: SceneInspectorProps) {
     });
   };
 
+  const selectPreset = (key: PresentationPresetName) => {
+    if (!onChange) return;
+    onChange(applyPresentationPreset(definition, key));
+  };
+
+  const resetCamera = () => {
+    if (!onChange) return;
+    onChange({
+      ...definition,
+      scene: {
+        ...definition.scene,
+        camera: { x: 0, y: 0, z: 0, rotateX: 0, rotateY: 0, rotateZ: 0, perspective: 1800 }
+      }
+    });
+  };
+
   return <div className="relative">
-    <button className="appearance-none border border-white/20 rounded-full px-4 py-2.5 bg-[#242424] text-white text-xs font-medium inline-flex items-center justify-center gap-2 cursor-pointer hover:bg-[#3a3a3a] transition-colors" onClick={() => setIsOpen(!isOpen)}>
+    <button className="appearance-none border border-white/20 rounded-full px-4 py-2.5 bg-[var(--seene-surface-2)] text-[var(--seene-text)] text-xs font-medium inline-flex items-center justify-center gap-2 cursor-pointer hover:bg-[var(--seene-border-text)] transition-colors" onClick={() => setIsOpen(!isOpen)}>
       {isOpen ? "Close Inspector" : "Scene Inspector"}
     </button>
-    {isOpen && <div className="absolute bottom-16 right-0 w-80 rounded-2xl border border-white/15 bg-[#141414]/95 p-5 text-xs text-white shadow-2xl backdrop-blur-xl z-50">
-      <h3 className="mb-4 text-sm font-semibold">Camera & Lens</h3>
+    {isOpen && <div className="absolute bottom-16 right-0 w-84 max-h-[80vh] overflow-y-auto rounded-2xl border border-white/15 bg-[#141414]/95 p-5 text-xs text-white shadow-2xl backdrop-blur-xl z-50">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-sm font-semibold">Presentation Presets</h3>
+        <button type="button" onClick={resetCamera} className="text-[11px] text-[#85858e] hover:text-white underline">Reset Camera</button>
+      </div>
+
+      <div className="mb-5 grid grid-cols-3 gap-1.5">
+        {(Object.keys(PRESENTATION_PRESETS) as PresentationPresetName[]).map(key => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => selectPreset(key)}
+            className="rounded-lg border border-white/10 bg-[#222] px-2.5 py-1.5 text-center text-[11px] font-medium text-white transition-colors hover:bg-white hover:text-black"
+          >
+            {PRESENTATION_PRESETS[key].name}
+          </button>
+        ))}
+      </div>
+
+      <h3 className="mb-3 text-sm font-semibold">Camera & Lens</h3>
 
       <div className="mb-3 grid grid-cols-3 gap-2">
         <label className="space-y-1"><span>Cam X</span> <input type="number" value={camera.x ?? 0} onChange={e => updateCamera("x", parseFloat(e.target.value) || 0)} className="w-full rounded bg-[#222] px-2 py-1 text-white border border-white/10" /></label>

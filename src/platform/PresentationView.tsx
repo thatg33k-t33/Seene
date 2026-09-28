@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from "react";
-import { previewUrl, type PlatformStatus } from "../core/platform";
-import { platformApi, presentHref, studioHref } from "./api";
+import { useEffect, useState, type FormEvent } from "react";
+import { defaultDevOrigin, previewUrl, type PlatformStatus } from "../core/platform";
+import { platformApi, presentHref, studioHref, useStudioBridge } from "./api";
 import { useResource } from "./data";
 import { Notice, buttonPrimary, buttonQuiet, fieldClass } from "./ui";
 
@@ -10,6 +10,14 @@ export function PresentationView({ project, scene }: { project: string; scene: s
   const [status, setStatus] = useState<PlatformStatus>();
   const [error, setError] = useState("");
   const [checking, setChecking] = useState(false);
+
+  useEffect(() => {
+    if (catalog.data?.project.adapter) {
+      setOrigin(defaultDevOrigin(catalog.data.project.adapter));
+    }
+  }, [catalog.data?.project.adapter]);
+
+  const bridge = useStudioBridge(project, !!status?.reachable);
 
   const scenes = catalog.data?.catalog.scenes ?? [];
   const index = scenes.findIndex(item => item.id === scene);
@@ -61,12 +69,18 @@ export function PresentationView({ project, scene }: { project: string; scene: s
         </div>
       )}
 
+      {bridge.applicationError && (
+        <div className="px-6 py-5">
+          <Notice>{`Your application reported an error: ${bridge.applicationError.message}`}</Notice>
+        </div>
+      )}
+
       {status?.reachable && (
         <iframe
-          key={previewUrl(catalog.data?.project.adapter, origin, current.id)}
+          key={previewUrl(catalog.data?.project.adapter, origin, current.id, current.applicationRoute)}
           title="Experience preview"
           className="min-h-[520px] flex-1 bg-black"
-          src={previewUrl(catalog.data?.project.adapter, origin, current.id)}
+          src={previewUrl(catalog.data?.project.adapter, origin, current.id, current.applicationRoute)}
         />
       )}
     </div>

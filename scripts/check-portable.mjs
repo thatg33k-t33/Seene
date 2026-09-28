@@ -44,7 +44,7 @@ try{
  await put('src/seene/scenes/survey.jsx','"use client";\nimport React from "react"; import {Surface} from "@thatg33k/seene"; import Counter from "../../Counter"; export default function HostScene(){return <Surface id="host"><Counter/></Surface>}');
  await run(process.execPath,[cli,'sync']);
  await run(process.execPath,[cli,'validate']);
- browser=await chromium.launch({channel:'chromium',headless:true});
+ try{browser=await chromium.launch({channel:'chromium',headless:true})}catch{browser=await chromium.launch({channel:'chrome',headless:true})}
  const page=await browser.newPage({viewport:{width:1280,height:900}});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  let url;let dev;

@@ -41,7 +41,7 @@ const layers = {
   projectAdapter: { local: ['core', 'projectAdapter', 'projectErrors'], external: ['typescript', 'zod'] },
   projectErrors: { local: ['projectErrors'], external: [] },
   services: { local: ['core', 'services', 'projectErrors'], external: ['zod', 'typescript'] },
-  viteIntegration: { local: ['core', 'viteIntegration'], external: ['vite', 'zod'] },
+  viteIntegration: { local: ['core', 'projectAdapter', 'viteIntegration'], external: ['vite', 'zod'] },
   exportCommands: {local:['core','commands','exportCommands','exportServices','services','projectErrors'], external:['zod']},
   exportServices: {local:['core','exportServices','services','projectErrors'],external:['zod','playwright']},
   cli: { local: ['core', 'commands', 'exportCommands', 'cli'], external: [] },

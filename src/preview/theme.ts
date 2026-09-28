@@ -19,6 +19,11 @@ ${studioTheme}
 .seene-control{appearance:none;box-sizing:border-box;border:1px solid #ffffff30;border-radius:999px;padding:11px 18px;background:#242424;color:#fff;font:500 13px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;text-decoration:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:9px;white-space:nowrap;min-height:44px;flex-shrink:0;transition:background .15s;box-shadow:none}
 .seene-control:hover{background:#3a3a3a}.seene-control:disabled{opacity:.45;cursor:default}
 .seene-control:focus-visible,.seene-timeline:focus-visible,.seene-export-panel select:focus-visible,[data-seene-error] button:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.seene-presentations{display:flex;flex-direction:column;align-items:center;gap:7px;width:100%;min-width:0;flex-shrink:0}
+.seene-presentation-rail{display:flex;gap:6px;max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;padding:2px;scrollbar-width:none}
+.seene-presentation-rail::-webkit-scrollbar{display:none}
+.seene-presentation-rail .seene-control{min-height:36px;padding:8px 14px;font-size:12px}
+.seene-presentation-note{margin:0;max-width:520px;text-align:center;font-size:11px;line-height:1.4;color:#b9b9c2;text-wrap:balance}
 .seene-primary{background:#fff;color:#111;border-color:transparent}.seene-primary:hover{background:#e5e5e5}
 .seene-icon{width:44px;padding:12px}.seene-control svg{width:17px;height:17px;flex:none}
 .seene-dock{display:flex;align-items:center;gap:12px;width:100%;flex-shrink:0}
@@ -45,7 +50,7 @@ ${studioTheme}
 .seene-export-panel p{color:#d4d4d4;line-height:1.6;margin:8px 0 16px}.seene-export-panel select{border:1px solid #ffffff40;background:#333;color:#fff;padding:9px 14px;border-radius:999px;font:inherit;margin-left:12px;min-height:44px;max-width:100%}
 .seene-export-panel code{display:block;background:#111;color:#eee;font-size:11px;padding:14px;border-radius:14px;overflow-wrap:anywhere;white-space:pre-wrap;margin:16px 0}
 [data-seene-preview] [data-seene-diagnostics]{display:none}
-@media(max-width:700px){.seene-footer{padding:12px max(10px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left))}.seene-controls{gap:10px;max-height:calc(100dvh - 24px - env(safe-area-inset-bottom))}.seene-header{gap:8px}.seene-heading{flex-wrap:wrap;gap:8px}.seene-title{flex-basis:100%;font-size:13px}.seene-control{padding:10px 14px}.seene-icon{padding:12px}.seene-dock{gap:8px}.seene-time{min-width:76px;font-size:11px}.seene-empty h1{font-size:30px}}
+@media(max-width:700px){.seene-footer{padding:12px max(10px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left))}.seene-controls{gap:10px;max-height:calc(100dvh - 24px - env(safe-area-inset-bottom))}.seene-header{gap:8px}.seene-heading{flex-wrap:wrap;gap:8px}.seene-title{flex-basis:100%;font-size:13px}.seene-presentation-rail{justify-content:flex-start}.seene-presentation-note{display:none}.seene-control{padding:10px 14px}.seene-icon{padding:12px}.seene-dock{gap:8px}.seene-time{min-width:76px;font-size:11px}.seene-empty h1{font-size:30px}}
 @media(max-height:500px){.seene-footer{padding-top:8px;padding-bottom:max(8px,env(safe-area-inset-bottom))}.seene-controls{gap:8px;max-height:calc(100dvh - 16px - env(safe-area-inset-bottom))}.seene-empty-symbol{display:none}.seene-empty h1{font-size:24px;margin:0 0 8px}}
 @media(prefers-reduced-motion:reduce){.seene-control{transition:none}}
 `;

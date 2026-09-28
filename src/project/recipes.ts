@@ -1,6 +1,7 @@
 import {discoverRecipes} from "./discovery";
 import {RESOURCES} from "../core/resources";
 import { SCENE_RECIPE_DIRECTORY, type SceneCatalog } from "../core/recipes";
+import { SEENE_APPLICATION_QUERY_PARAM } from "../core/platform";
 import type { SceneIssue } from "../core/scene";
 import { executeProjectCommand } from "./commands";
 import * as services from "./services";
@@ -35,6 +36,8 @@ export async function executeRecipeCommand(
       const url = new URL(opened.data.url);
       url.searchParams.set("seene-preview", "1");
       url.searchParams.set("seene-scene", catalog.selected!.id);
+      const applicationRoute = catalog.selected!.application?.route;
+      if (applicationRoute) url.searchParams.set(SEENE_APPLICATION_QUERY_PARAM, applicationRoute);
       if (parsed.data.launch) await services.openBrowser(root, url.href);
       return { success: true, data: { ...catalog, url: url.href } };
     }

@@ -17,3 +17,6 @@ test-results/
 .local-package/
 
 .release/
+
+# `npm run release:local` writes into .release/; a bare `npm pack` drops its tarball here.
+*.tgz

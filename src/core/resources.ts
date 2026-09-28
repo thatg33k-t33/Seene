@@ -1,5 +1,6 @@
 import {SnapshotSceneSchema,loadSceneRecipes,ListScenesSchema,LoadSceneSchema,OpenSceneSchema} from "./recipes";
 import { presentPreview } from "./preview";
+import { applyPresentation, listPresentations, PRESENTATIONS } from "./presentation";
 import { getAuthoringGuide, reviewAuthoring } from "./authoring";
 import { ExportVideoSchema } from "./export";
 import { InitProjectSchema, SyncProjectSchema, LoadProjectSchema, ValidateProjectSchema, OpenPreviewSchema } from "./project";
@@ -22,6 +23,9 @@ export const RESOURCES = Object.freeze({
   "load-project": LoadProjectSchema,
   "validate-project": ValidateProjectSchema,
   "open-preview": OpenPreviewSchema,
+  "apply-presentation": applyPresentation,
+  "list-presentations": listPresentations,
+  "presentations": PRESENTATIONS,
   "evaluate-spatial": evaluateScene,
   "evaluate-motion": evaluateMotion,
   "validate-definition": validateScene,

@@ -1,5 +1,6 @@
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import type { SceneIssue } from "../core";
+import type { ApplicationIssue } from "./application";
 import { SceneLibrary } from "./SceneLibrary";
 import { usePreviewConnection, type PreviewHot } from "./connection";
 
@@ -10,11 +11,15 @@ export function SceneModuleLibrary({
   hot,
   backHref,
   hostContent,
+  applicationRoute,
+  onApplicationIssue,
 }: {
   modules: SceneModules;
   hot?: PreviewHot;
   backHref?: string;
   hostContent?: ReactNode;
+  applicationRoute?: string;
+  onApplicationIssue?: (issue: ApplicationIssue) => void;
 }) {
   const connection = usePreviewConnection(hot, pause);
   const [state, setState] = useState<{
@@ -109,6 +114,8 @@ export function SceneModuleLibrary({
       hostContent={hostContent}
       hot={hot}
       backHref={backHref}
+      applicationRoute={applicationRoute}
+      onApplicationIssue={onApplicationIssue}
     />
   );
 }

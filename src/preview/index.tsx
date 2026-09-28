@@ -1,38 +1,61 @@
-import { useMemo, useSyncExternalStore, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore, useState, type ReactNode } from "react";
 import { Surface } from "../react";
-import type { PreviewDefinitionInput } from "../core";
+import { DEFAULT_PRESENTATION, defaultSceneDefinition } from "../core";
+import {
+  SCENE_PRESENTATION_SURFACE,
+  SEENE_APPLICATION_QUERY_PARAM,
+  SEENE_PREVIEW_QUERY_PARAM,
+  SEENE_SCENE_QUERY_PARAM,
+  sanitizeApplicationRoute,
+} from "../core/platform";
+import { ApplicationPreview, containsDocumentContent } from "./application";
 import { ScenePreview } from "./ScenePreview";
 import {SceneModuleLibrary,type SceneModules} from "./modules";
 export {SceneLibrary} from "./SceneLibrary";
 export type {SceneLibraryProps} from "./SceneLibrary";
 export {SceneModuleLibrary} from "./modules";
 export type {SceneModules} from "./modules";
-import type { PreviewHot } from "./connection";
+import { usePreviewConnection, useSeeneClientBridge, type PreviewHot } from "./connection";
 export { ScenePreview } from "./ScenePreview";
 export type { ScenePreviewProps } from "./ScenePreview";
 export type { PreviewHot } from "./connection";
+export { ApplicationPreview, applicationDocumentUrl, containsDocumentContent } from "./application";
+export type { ApplicationIssue, ApplicationPreviewProps } from "./application";
 
-export type ProjectPreviewProps = {children?: ReactNode; projectId: string; enabled: boolean; active?: boolean; hot?: PreviewHot; sceneModules?: SceneModules};
-const initialDefinition: PreviewDefinitionInput = {
-  scene: {version: 3, camera: {perspective:1800,rotateX:4,rotateY:-7},focus:{distance:1800,fStop:8,maxBlur:6},nodes:[{id:"seene-application"}]},
-};
-export function ProjectPreview({children, projectId, enabled, active, hot, sceneModules}: ProjectPreviewProps): ReactNode {
+export type ProjectPreviewProps = {children?: ReactNode; projectId: string; enabled: boolean; active?: boolean; hot?: PreviewHot; sceneModules?: SceneModules; applicationRoute?: string};
+const applicationDefinition = defaultSceneDefinition();
+export function ProjectPreview({children, projectId, enabled, active, hot, sceneModules, applicationRoute}: ProjectPreviewProps): ReactNode {
+  const { reportApplicationIssue } = useSeeneClientBridge(projectId);
   const [locationAtMount] = useState(() => typeof window === "undefined" ? "" : window.location.href);
   const location = useSyncExternalStore(() => () => {}, () => locationAtMount, () => "");
   const entry = useMemo(() => {
     if (!location) return null;
     const url = new URL(location);
-    const requested = url.searchParams.get("seene-preview") === "1" || url.searchParams.get("flute-preview") === "1" || url.searchParams.has("seene-scene") || url.searchParams.has("flute-scene");
-    url.searchParams.delete("seene-preview");
-    url.searchParams.delete("flute-preview");
-    url.searchParams.delete("seene-scene");
-    url.searchParams.delete("flute-scene");
-    return {requested, back: url.pathname + url.search + url.hash};
-  }, [location]);
-  const content = useMemo(() => <Surface id="seene-application" style={{width:"100%",minHeight:980}}>{children}</Surface>, [children]);
+    const requested = url.searchParams.get(SEENE_PREVIEW_QUERY_PARAM) === "1" || url.searchParams.has(SEENE_SCENE_QUERY_PARAM);
+    const route = sanitizeApplicationRoute(url.searchParams.get(SEENE_APPLICATION_QUERY_PARAM) ?? "")
+      ?? sanitizeApplicationRoute(applicationRoute ?? "");
+    url.searchParams.delete(SEENE_PREVIEW_QUERY_PARAM);
+    url.searchParams.delete(SEENE_SCENE_QUERY_PARAM);
+    url.searchParams.delete(SEENE_APPLICATION_QUERY_PARAM);
+    return {requested, back: url.pathname + url.search + url.hash, route};
+  }, [location, applicationRoute]);
+  const documentChildren = useMemo(() => containsDocumentContent(children), [children]);
+  const documentApplication = children === undefined || documentChildren;
+  const route = entry?.route ?? (documentApplication ? "/" : undefined);
+  const reportedDocument = useRef(false);
+  useEffect(() => {
+    if (!documentChildren || children === undefined || reportedDocument.current) return;
+    reportedDocument.current = true;
+    reportApplicationIssue({ message: "This application renders its own document (html/body) inside the Seene preview. Seene presents the running application document instead; move the preview wrapper inside the document root." });
+  }, [documentChildren, children, reportApplicationIssue]);
+  const content = useMemo(() => <Surface id={SCENE_PRESENTATION_SURFACE} style={{width:"100%",minHeight:980}}>{children}</Surface>, [children]);
   if (!enabled || !(active ?? entry?.requested)) return children;
-  if(sceneModules) return <div data-seene-project={projectId}><SceneModuleLibrary modules={sceneModules} hot={hot} backHref={entry?.back} hostContent={children}/></div>;
-  return <div data-seene-project={projectId}><ScenePreview title="Your application" definition={initialDefinition} backHref={entry?.back} hot={hot}>
-    {content}
+  if(sceneModules) return <div data-seene-project={projectId}><SceneModuleLibrary modules={sceneModules} hot={hot} backHref={entry?.back} hostContent={documentChildren ? undefined : children} applicationRoute={entry?.route} onApplicationIssue={reportApplicationIssue}/></div>;
+  return <div data-seene-project={projectId}><ScenePreview title="Your application" definition={applicationDefinition} backHref={entry?.back} hot={hot}>
+    {route
+      ? <Surface id={SCENE_PRESENTATION_SURFACE} style={{width:"100%",minHeight:980}}>
+          <ApplicationPreview route={route} onIssue={reportApplicationIssue}/>
+        </Surface>
+      : content}
   </ScenePreview></div>;
 }

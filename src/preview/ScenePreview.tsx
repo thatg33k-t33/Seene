@@ -2,10 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, useId, type ReactNod
 import { createPortal } from "react-dom";
 import { SUPPORTED_EXPORT_FPS, ExportFrameRateSchema, type PreviewDefinitionInput } from "../core";
 import { Scene, SceneErrorBoundary, useSceneCapture } from "../react";
+import { resolvePresentation } from "../core";
 import { usePreviewSession } from "./session";
 import { usePreviewConnection, type PreviewHot } from "./connection";
 import { BrandAttribution } from "./BrandAttribution";
 import { GettingStarted } from "./GettingStarted";
+import { PresentationPicker } from "./PresentationPicker";
 import { SceneInspector } from "./SceneInspector";
 import { previewTheme } from "./theme";
 
@@ -17,6 +19,8 @@ export type ScenePreviewProps = {
   onBack?: () => void;
   revision?: unknown;
   hot?: PreviewHot;
+  presentation?: string;
+  onPresentationChange?: (id: string) => void;
 };
 const timeLabel = (ms: number) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2,"0")}`;
 function Glyph({kind}: {kind: "play" | "pause" | "restart" | "export"}) {
@@ -65,9 +69,13 @@ function ExportMenu({disabled, panelHost}: {disabled: boolean; panelHost: HTMLDi
     </details>;
 }
 
-export function ScenePreview({definition: input, children, title = "Untitled scene", backHref, onBack, revision, hot}: ScenePreviewProps) {
-  const [localDef, setLocalDef] = useState<PreviewDefinitionInput | undefined>(input);
-  useEffect(() => { setLocalDef(input); }, [input]);
+export function ScenePreview({definition: input, children, title = "Untitled scene", backHref, onBack, revision, hot, presentation, onPresentationChange}: ScenePreviewProps) {
+  const presented = useMemo(
+    () => (input === undefined ? undefined : resolvePresentation(input, presentation)),
+    [input, presentation],
+  );
+  const [localDef, setLocalDef] = useState<PreviewDefinitionInput | undefined>(presented);
+  useEffect(() => { setLocalDef(presented); }, [presented]);
 
   const session = usePreviewSession(localDef, revision);
   const connection = usePreviewConnection(hot, session.pause);
@@ -97,7 +105,8 @@ export function ScenePreview({definition: input, children, title = "Untitled sce
   const stateText = !connection.connected ? "Reconnecting to your app…" : connection.error ? "Source needs a correction" :
     connection.updating ? "Updating scene…" : renderError || session.issues.length ? "Scene needs a correction" :
     !definition ? "Waiting for a scene" : session.playing ? "Playing" : "Live preview";
-  return <main data-seene-preview="" data-seene-state={blocked ? "unavailable" : "ready"}>
+  return (
+    <main data-seene-preview="" data-seene-state={blocked ? "unavailable" : "ready"}>
     <style>{previewTheme}</style>
     <div className="seene-viewport" ref={setViewport} aria-label="Scene preview">
       {!definition && <div className="seene-empty seene-chrome">
@@ -142,6 +151,7 @@ export function ScenePreview({definition: input, children, title = "Untitled sce
           <SceneInspector definition={localDef} onChange={updated => setLocalDef(updated)} />
           <ExportMenu disabled={blocked || !session.durationMs} panelHost={exportPanel}/>
         </div>
+        {onPresentationChange && <PresentationPicker value={presentation} onChange={onPresentationChange} />}
         {!definition && <GettingStarted/>}
         <div className="seene-dock">
           <button className="seene-control seene-primary seene-icon" disabled={blocked || !session.durationMs}
@@ -157,5 +167,6 @@ export function ScenePreview({definition: input, children, title = "Untitled sce
         <div className="seene-preview-meta"><span className="seene-status" role="status"><span className="seene-status-dot"/>{stateText}</span><BrandAttribution/></div>
       </div>
     </footer>
-  </main>;
+    </main>
+  );
 }

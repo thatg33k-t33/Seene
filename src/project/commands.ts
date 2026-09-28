@@ -44,13 +44,6 @@ Tell your coding agent the desired host page route or component path, together w
 }
 const configs = ["vite.config.ts", "vite.config.js", "vite.config.mts", "vite.config.mjs", "vite.config.cts", "vite.config.cjs"];
 const locks = ["package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "pnpm-lock.yaml", "bun.lock", "bun.lockb"];
-async function lockfileAt(root: string) {
-  const existing: string[] = [];
-  for (const target of locks) if (await services.readText(root, target) !== undefined) existing.push(target);
-  if (existing.length > 1)
-    throw fault("unsupported-project", "Resolve conflicting package-manager lockfiles before setup.");
-  return existing[0];
-}
 function decode<T>(text: string, schema: z.ZodType<T>, target: string): T {
   try { return schema.parse(JSON.parse(text)); }
   catch { throw fault("invalid-file", "Invalid or conflicting project metadata; review " + target + ".", target); }
@@ -66,23 +59,41 @@ function managerName(value: string | undefined): PackageManager | undefined {
   const name = value?.split("@")[0].split("/")[0];
   return packageManagers.has(name as PackageManager) ? name as PackageManager : undefined;
 }
-async function packageManagerFor(pkg?: z.output<typeof PackageSchema>, lock?: string): Promise<PackageManager> {
+function lockfileManager(target: string): PackageManager {
+  if (target === "pnpm-lock.yaml") return "pnpm";
+  if (target === "yarn.lock") return "yarn";
+  if (target === "bun.lock" || target === "bun.lockb") return "bun";
+  return "npm";
+}
+export async function detectPackageManager(root: string, pkg?: z.output<typeof PackageSchema>): Promise<PackageManager> {
   const declared = managerName(pkg?.packageManager);
   if (pkg?.packageManager && !declared)
     throw fault("unsupported-project", "Use npm, pnpm, Yarn, or Bun as the project package manager.");
-  const lockManager = lock === "pnpm-lock.yaml" ? "pnpm" : lock === "yarn.lock" ? "yarn"
-    : lock === "bun.lock" || lock === "bun.lockb" ? "bun" : lock ? "npm" : undefined;
-  if (declared && lockManager && declared !== lockManager)
-    throw fault("unsupported-project", "The packageManager field and lockfile identify different package managers.");
+  const existingLocks: { target: string; manager: PackageManager }[] = [];
+  for (const target of locks) {
+    if (await services.readText(root, target) !== undefined) {
+      existingLocks.push({ target, manager: lockfileManager(target) });
+    }
+  }
+  const lockManagers = Array.from(new Set(existingLocks.map(l => l.manager)));
   const active = managerName(services.packageManagerUserAgent());
-  return declared ?? lockManager ?? active ?? "npm";
+  if (declared) {
+    if (lockManagers.length === 0 || lockManagers.includes(declared)) return declared;
+    throw fault("unsupported-project", "The packageManager field and lockfile identify different package managers.");
+  }
+  if (lockManagers.length === 0) return active ?? "npm";
+  if (lockManagers.length === 1) return lockManagers[0];
+  if (active && lockManagers.includes(active)) return active;
+  if (lockManagers.includes("pnpm")) return "pnpm";
+  const lockfileList = existingLocks.map(l => l.target).join(", ");
+  throw fault("unsupported-project", `Conflicting package-manager lockfiles found: ${lockfileList}. Remove stale lockfiles or specify packageManager in package.json before setup.`);
 }
 async function inspectProject(root: string) {
   for (const target of [statePath, pendingPath, "package.json", ...locks, ...configs])
     await services.scopedPath(root, target);
   const pkg = await packageAt(root, "package.json");
   if (!pkg) throw fault("unsupported-project", "Choose an existing Vite React project containing package.json.");
-  const packageManager = await packageManagerFor(pkg, await lockfileAt(root));
+  const packageManager = await detectPackageManager(root, pkg);
   const dependencies = { ...pkg.devDependencies, ...pkg.dependencies };
   if (!dependencies.vite || !dependencies.react
     || !dependencies["react-dom"]
@@ -317,7 +328,7 @@ async function portableHost(root:string, requested?:string):Promise<PortableHost
   if (!pkg) throw fault("unsupported-project","Run seene init in your existing React application's package directory.");
   const deps = {...pkg.devDependencies,...pkg.dependencies};
   if (!deps.react || !deps["react-dom"]) throw fault("unsupported-project","This package needs a React DOM renderer.");
-  await packageManagerFor(pkg, await lockfileAt(root));
+  await detectPackageManager(root, pkg);
   const saved = await stateFor(root);
   if (saved.project?.adapter) return {adapter:saved.project.adapter,entry:saved.project.entry};
   if (requested === "react") return {adapter:"react",entry:"src/seene/ProjectPreview.jsx"};
@@ -387,7 +398,7 @@ async function initializePortable(root:string, host:PortableHost, packageSource?
   const existingText=await services.readText(root,managedPath);
   const existing=existingText===undefined?undefined:decode(existingText,ManagedSchema,managedPath);
   const pkg = await packageAt(root, "package.json");
-  const manager = await packageManagerFor(pkg, await lockfileAt(root));
+  const manager = await detectPackageManager(root, pkg);
   const project=saved.project??pending?.project??ProjectStateSchema.parse({version:1,projectId:services.newProjectId(),entry:host.entry,packageManager:manager,adapter:host.adapter});
   if(project.adapter!==host.adapter||project.entry!==host.entry)throw fault("conflict","Existing Seene setup uses another host connection.");
   for(const record of [pending,existing])if(record && JSON.stringify(record.project)!==JSON.stringify(project))throw fault("conflict","Seene setup identity changed.");

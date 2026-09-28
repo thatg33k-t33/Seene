@@ -4,6 +4,7 @@ import type { Plugin } from "vite";
 import { SceneRecipeSchema } from "../core/recipes";
 import { sceneComponentSource } from "../core/platform";
 import { PlatformFault, writeSceneSourcePair } from "./scene-files";
+export { writeSceneSourcePair, removeSceneSourcePair, duplicateSceneSourcePair, syncCatalog } from "./scene-files";
 
 const route = "/__seene/create-scene";
 const maxBodyBytes = 256_000;

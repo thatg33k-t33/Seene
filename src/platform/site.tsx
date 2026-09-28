@@ -85,9 +85,9 @@ type ButtonProps = {
 } & ({ href: string } & Record<string, unknown> | { href?: undefined } & Record<string, unknown>);
 
 export function SeeneButton(props: ButtonProps) {
-  const { variant = "secondary", size = "nav", kbd, loading, className = "", children, ...rest } = props as {
+  const { variant = "secondary", size = "nav", kbd, loading, className = "", children, disabled, ...rest } = props as {
     variant?: "primary" | "secondary" | "ghost"; size?: "nav" | "cta"; kbd?: ReactNode; loading?: boolean;
-    className?: string; children: ReactNode; href?: string; disabled?: boolean;
+    className?: string; children: ReactNode; href?: string; disabled?: boolean; type?: string;
   } & Record<string, unknown>;
   const cls = ["seene-btn", `seene-btn-${variant}`, size === "cta" ? "seene-btn-cta" : "seene-btn-nav", className]
     .filter(Boolean).join(" ");
@@ -103,7 +103,7 @@ export function SeeneButton(props: ButtonProps) {
     const { disabled: _disabled, ...anchorRest } = rest as Record<string, unknown>;
     return <a href={href} className={cls} {...(anchorRest as object)}>{inner}</a>;
   }
-  return <button className={cls} disabled={loading || (rest as { disabled?: boolean }).disabled} {...(rest as object)}>{inner}</button>;
+  return <button className={cls} disabled={loading || disabled} {...(rest as object)}>{inner}</button>;
 }
 
 export function PlusIcon() {

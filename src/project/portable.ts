@@ -55,3 +55,4 @@ export function portableCatalog(entries: {source:string;binding:string}[]): stri
   ]);
   return imports.join("\n") + "\nexport const sceneModules = {\n" + mappings.join("\n") + "\n};\n";
 }
+

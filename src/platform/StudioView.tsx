@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from "react";
-import { previewUrl, type PlatformStatus } from "../core/platform";
-import { platformApi, presentHref, settingsHref, PROJECTS_ROUTE } from "./api";
+import { useEffect, useState, type FormEvent } from "react";
+import { defaultDevOrigin, previewUrl, type PlatformStatus } from "../core/platform";
+import { platformApi, presentHref, settingsHref, useStudioBridge, PROJECTS_ROUTE } from "./api";
 import { useResource } from "./data";
 import { CreateSceneDialog } from "./CreateSceneDialog";
 import { Command, Notice, Panel, StatusPill, buttonPrimary, buttonQuiet, fieldClass } from "./ui";
@@ -19,7 +19,16 @@ export function StudioView({ project }: { project: string }) {
   const data = catalog.data;
   const scenes = data?.catalog.scenes ?? [];
   const activeScene = scenes.find(scene => scene.id === selected);
-  const studioUrl = data ? previewUrl(data.project.adapter, origin, activeScene?.id) : "";
+  const studioUrl = data ? previewUrl(data.project.adapter, origin, activeScene?.id, activeScene?.applicationRoute) : "";
+
+  useEffect(() => {
+    if (data?.project.adapter) {
+      setOrigin(defaultDevOrigin(data.project.adapter));
+    }
+  }, [data?.project.adapter]);
+
+  const bridge = useStudioBridge(project, !!status?.reachable);
+  const isConnected = !!(data?.project.connected && (!status?.reachable || bridge.liveConnected));
 
   const connect = async (event: FormEvent) => {
     event.preventDefault();
@@ -40,17 +49,27 @@ export function StudioView({ project }: { project: string }) {
     } catch (failure) { setMessage(failure instanceof Error ? failure.message : "The scene could not be removed."); }
   };
 
+  const duplicateScene = async (id: string) => {
+    setMessage("");
+    try {
+      const newId = `${id}-copy`;
+      await platformApi.duplicateScene(project, id, newId);
+      setSelected(newId);
+      catalog.reload();
+    } catch (failure) { setMessage(failure instanceof Error ? failure.message : "The scene could not be duplicated."); }
+  };
+
   return (
     <div className="mx-auto w-full max-w-6xl space-y-8 px-6 py-10">
       <header className="space-y-3">
-        <a className="font-mono text-xs text-[#85858e] hover:text-[#f1f1f4]" href={PROJECTS_ROUTE}>← Projects</a>
+        <a className="font-mono text-xs text-[var(--seene-text-muted)] hover:text-[var(--seene-text)]" href={PROJECTS_ROUTE}>← Projects</a>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="space-y-1">
-            <h1 className="text-3xl font-medium tracking-tight text-[#f1f1f4]">{data?.project.name ?? "Studio"}</h1>
-            <p className="truncate font-mono text-xs text-[#85858e]">{project}</p>
+            <h1 className="text-3xl font-medium tracking-tight text-[var(--seene-text)]">{data?.project.name ?? "Studio"}</h1>
+            <p className="truncate font-mono text-xs text-[var(--seene-text-muted)]">{project}</p>
           </div>
           <div className="flex items-center gap-2">
-            {data && <StatusPill ok={data.project.connected} label={data.project.connected ? "Connected" : "Not connected"} />}
+            {data && <StatusPill ok={isConnected} label={isConnected ? "Connected" : "Not connected"} />}
             <a className={buttonQuiet} href={settingsHref(project)}>Settings</a>
             {scenes.length > 0 && <a className={buttonPrimary} href={presentHref(project, activeScene?.id ?? scenes[0].id)}>Present</a>}
           </div>
@@ -58,7 +77,7 @@ export function StudioView({ project }: { project: string }) {
       </header>
 
       {catalog.error && <Notice>{catalog.error}</Notice>}
-      {catalog.loading && !data && <p className="text-sm text-[#85858e]">Reading this project's scenes…</p>}
+      {catalog.loading && !data && <p className="text-sm text-[var(--seene-text-muted)]">Reading this project's scenes…</p>}
       {message && <Notice>{message}</Notice>}
       {data && !data.project.connected && (
         <Notice tone="info">
@@ -73,26 +92,27 @@ export function StudioView({ project }: { project: string }) {
           actions={<button type="button" className={buttonPrimary} onClick={() => setCreating(true)}>+ New scene</button>}
         >
           {scenes.length === 0 ? (
-            <p className="text-sm text-[#85858e]">No scenes yet. Create the first one to present part of your application.</p>
+            <p className="text-sm text-[var(--seene-text-muted)]">No scenes yet. Create the first one to present part of your application.</p>
           ) : (
             <ul className="space-y-3">
               {scenes.map((scene, index) => (
                 <li
                   key={scene.id}
                   data-scene-id={scene.id}
-                  className={`rounded-xl border px-4 py-3 ${selected === scene.id ? "border-[#55555d] bg-[#19191e]" : "border-[#222228] bg-[#141418]"}`}
+                  className={`rounded-xl border px-4 py-3 ${selected === scene.id ? "border-[var(--seene-text-muted)] bg-[var(--seene-surface-2)]" : "border-[var(--seene-border)] bg-[var(--seene-surface)]"}`}
                 >
                   <button type="button" className="flex w-full items-center gap-3 text-left" onClick={() => setSelected(scene.id)}>
-                    <span className="font-mono text-xs text-[#85858e]">{String(index + 1).padStart(2, "0")}</span>
+                    <span className="font-mono text-xs text-[var(--seene-text-muted)]">{String(index + 1).padStart(2, "0")}</span>
                     <span className="min-w-0 flex-1">
-                      <strong className="block truncate text-sm font-medium text-[#f1f1f4]">{scene.title}</strong>
-                      <span className="block truncate text-xs text-[#85858e]">{scene.description || "A scene from your application"}</span>
+                      <strong className="block truncate text-sm font-medium text-[var(--seene-text)]">{scene.title}</strong>
+                      <span className="block truncate text-xs text-[var(--seene-text-muted)]">{scene.description || "A scene from your application"}</span>
                     </span>
-                    <span className="font-mono text-xs text-[#85858e]">{Math.round(scene.durationMs / 1000)}s</span>
+                    <span className="font-mono text-xs text-[var(--seene-text-muted)]">{Math.round(scene.durationMs / 1000)}s</span>
                   </button>
                   <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <a className={buttonQuiet} href={previewUrl(data?.project.adapter, origin, scene.id)} target="_blank" rel="noreferrer">Open in app studio</a>
+                    <a className={buttonQuiet} href={previewUrl(data?.project.adapter, origin, scene.id, scene.applicationRoute)} target="_blank" rel="noreferrer">Open in app studio</a>
                     <a className={buttonQuiet} href={presentHref(project, scene.id)}>Present</a>
+                    <button type="button" className={buttonQuiet} onClick={() => duplicateScene(scene.id)}>Duplicate</button>
                     {confirmDelete === scene.id ? (
                       <>
                         <button type="button" className={buttonQuiet} onClick={() => removeScene(scene.id)}>Confirm delete</button>
@@ -124,13 +144,18 @@ export function StudioView({ project }: { project: string }) {
               <button type="submit" className={buttonPrimary} disabled={checking}>{checking ? "Checking…" : "Connect"}</button>
             </form>
             {statusError && <div className="mt-3"><Notice>{statusError}</Notice></div>}
+            {bridge.applicationError && (
+              <div className="mt-3">
+                <Notice>{`Your application reported an error: ${bridge.applicationError.message}`}</Notice>
+              </div>
+            )}
             {status && (
               <div className="mt-3 space-y-3">
                 <Notice tone={status.reachable ? "info" : "error"}>{status.message}</Notice>
-                {status.reachable && <iframe key={studioUrl} title="Application preview" className="h-[520px] w-full rounded-xl border border-[#222228] bg-black" src={studioUrl} />}
+                {status.reachable && <iframe key={studioUrl} title="Application preview" className="h-[520px] w-full rounded-xl border border-[var(--seene-border)] bg-black" src={studioUrl} />}
               </div>
             )}
-            <p className="mt-4 text-xs text-[#55555d]">
+            <p className="mt-4 text-xs text-[var(--seene-text-muted)]">
               Camera, focus, motion and the timeline are edited live inside your application's own studio. Seene stores each scene as a recipe next to its component.
             </p>
           </Panel>

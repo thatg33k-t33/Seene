@@ -10,6 +10,8 @@ export * from "./authoring";
 
 export * from "./preview";
 
+export * from "./presentation";
+
 export * from "./recipes";
 
 export * from "./platform";

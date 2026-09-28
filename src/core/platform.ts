@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { SceneRecipeSchema, SCENE_RECIPE_DIRECTORY, SceneRecipeIdSchema, type SceneCatalog, type SceneRecipe } from "./recipes";
 import { motionDuration } from "./motion";
-import type { PreviewDefinitionInput } from "./preview";
+import { applyPresentationPreset, type PreviewDefinitionInput } from "./preview";
 import type { SceneIssue } from "./scene";
 
 export const PLATFORM_HOME_DIRECTORY = ".seene";
@@ -10,6 +10,14 @@ export const PLATFORM_API_PREFIX = "/__seene/platform";
 export const SCENE_PRESENTATION_SURFACE = "seene-application";
 export const SCENE_PRESENTATION_WIDTH = 1400;
 export const SCENE_PRESENTATION_HEIGHT = 980;
+export const SEENE_PREVIEW_QUERY_PARAM = "seene-preview";
+export const SEENE_SCENE_QUERY_PARAM = "seene-scene";
+export const SEENE_APPLICATION_QUERY_PARAM = "seene-app";
+export const SEENE_PREVIEW_QUERY_PARAMS = Object.freeze([
+  SEENE_PREVIEW_QUERY_PARAM,
+  SEENE_SCENE_QUERY_PARAM,
+  SEENE_APPLICATION_QUERY_PARAM,
+]);
 
 export const PlatformIssueSchema = z.strictObject({
   path: z.string(),
@@ -48,6 +56,7 @@ export const PlatformSceneSchema = z.strictObject({
   binding: z.string().min(1),
   durationMs: z.number().nonnegative(),
   hasSnapshot: z.boolean(),
+  applicationRoute: z.string().min(1).optional(),
 });
 export const PlatformCatalogSchema = z.strictObject({
   scenes: z.array(PlatformSceneSchema),
@@ -61,6 +70,9 @@ export const PlatformContentFileSchema = z.strictObject({
   path: z.string().min(1),
   default: z.boolean(),
   exports: z.array(z.string()),
+  kind: z.enum(["page", "section", "component"]).optional(),
+  title: z.string().optional(),
+  route: z.string().optional(),
 });
 export const PlatformContentSchema = z.strictObject({
   files: z.array(PlatformContentFileSchema),
@@ -72,6 +84,16 @@ export const SceneDraftSchema = z.strictObject({
   content: PlatformContentSelectionSchema.optional(),
 });
 export const CreateSceneRequestSchema = z.strictObject({ path: RegisterProjectSchema.shape.path, ...SceneDraftSchema.shape });
+export const DuplicateSceneRequestSchema = z.strictObject({
+  path: RegisterProjectSchema.shape.path,
+  id: SceneRecipeIdSchema,
+  newId: SceneRecipeIdSchema,
+});
+export const RenameSceneRequestSchema = z.strictObject({
+  path: RegisterProjectSchema.shape.path,
+  id: SceneRecipeIdSchema,
+  newId: SceneRecipeIdSchema,
+});
 export const RemoveSceneRequestSchema = z.strictObject({ path: RegisterProjectSchema.shape.path, id: SceneRecipeIdSchema });
 
 export const PlatformProjectsSchema = z.strictObject({
@@ -146,12 +168,13 @@ export function defaultSceneDefinition(): PreviewDefinitionInput {
   };
 }
 
-export function createSceneRecipe(input: { id: string; title: string; description?: string }): SceneRecipe {
+export function createSceneRecipe(input: { id: string; title: string; description?: string; applicationRoute?: string }): SceneRecipe {
   return SceneRecipeSchema.parse({
     version: 1,
     id: input.id,
     title: input.title,
     ...(input.description ? { description: input.description } : {}),
+    ...(input.applicationRoute ? { application: { route: input.applicationRoute } } : {}),
     definition: defaultSceneDefinition(),
   });
 }
@@ -187,11 +210,84 @@ ${open}
 `;
 }
 
+export function isDocumentOrLayoutWrapper(target: string): boolean {
+  const norm = target.replace(/\\/g, "/").toLowerCase();
+  const basename = norm.split("/").pop() || "";
+  if (basename.startsWith("layout.") || basename.startsWith("_document.") || basename.startsWith("_app.")) return true;
+  if (norm.includes("/seene/") || basename.startsWith("seene.")) return true;
+  return false;
+}
+
 export function isApplicationSourcePath(target: string): boolean {
   const normalized = target.replace(/\\/g, "/").replace(/^\.\//, "");
   if (normalized.includes("..")) return false;
-  if (!/^src\/[A-Za-z0-9._/-]+\.(?:tsx|jsx)$/.test(normalized)) return false;
-  return !normalized.startsWith(SCENE_RECIPE_DIRECTORY + "/");
+  if (!/^(?:src|app|pages)\/[A-Za-z0-9._/-]+\.(?:tsx|jsx)$/.test(normalized)) return false;
+  if (normalized.startsWith(SCENE_RECIPE_DIRECTORY + "/")) return false;
+  if (isDocumentOrLayoutWrapper(normalized)) return false;
+  return true;
+}
+
+export function isIconOrPrimitive(filePath: string, exportName?: string): boolean {
+  const norm = filePath.replace(/\\/g, "/").toLowerCase();
+  if (norm.includes("/icon/") || norm.includes("/icons/") || norm.includes("/svg/") || norm.includes("/svgs/") || norm.includes("/lucide/") || norm.includes("/radix/") || norm.includes("/primitives/")) return true;
+  const basename = norm.split("/").pop() || "";
+  if (basename.endsWith("icon.tsx") || basename.endsWith("icon.jsx") || basename.endsWith("svg.tsx") || basename.endsWith("svg.jsx") || basename.endsWith("glyph.tsx")) return true;
+  if (exportName) {
+    const lowerExport = exportName.toLowerCase();
+    if (lowerExport.endsWith("icon") || lowerExport.endsWith("svg") || lowerExport.endsWith("glyph")) return true;
+  }
+  return false;
+}
+
+export function classifyApplicationUnit(filePath: string, exportName?: string): { kind: "page" | "section" | "component"; title: string; route?: string } {
+  const norm = filePath.replace(/\\/g, "/");
+  const basename = norm.split("/").pop()?.replace(/\.[jt]sx$/, "") || "Unit";
+
+  const isPage = /^app\/(?:.*\/)?page\.[jt]sx$/.test(norm)
+    || /^pages\/(?:.*\/)?[A-Za-z0-9_-]+\.[jt]sx$/.test(norm)
+    || norm.startsWith("src/pages/")
+    || norm.startsWith("src/routes/")
+    || norm.startsWith("src/app/")
+    || basename.endsWith("Page")
+    || basename.endsWith("Screen")
+    || basename.endsWith("View");
+
+  if (isPage) {
+    let route = "/";
+    if (/^app\/(.*)\/page\.[jt]sx$/.test(norm)) {
+      route = "/" + norm.replace(/^app\//, "").replace(/\/page\.[jt]sx$/, "");
+    } else if (/^pages\/(.*)\.[jt]sx$/.test(norm)) {
+      const stem = norm.replace(/^pages\//, "").replace(/\.[jt]sx$/, "");
+      route = stem === "index" ? "/" : "/" + stem;
+    } else if (/^src\/pages\/(.*)\.[jt]sx$/.test(norm)) {
+      const stem = norm.replace(/^src\/pages\//, "").replace(/\.[jt]sx$/, "");
+      route = stem === "index" ? "/" : "/" + stem;
+    }
+    const cleanRoute = route === "/" ? "Home" : route.replace(/^\//, "").split(/[/_-]/).map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
+    return { kind: "page", title: `${cleanRoute} Page`, route };
+  }
+
+  const isSection = norm.includes("/sections/")
+    || norm.includes("/components/sections/")
+    || basename.endsWith("Section")
+    || basename.endsWith("Hero")
+    || basename.endsWith("Header")
+    || basename.endsWith("Footer")
+    || basename.endsWith("Showcase")
+    || basename.endsWith("Features")
+    || basename.endsWith("Pricing")
+    || basename.endsWith("CTA")
+    || basename.endsWith("Banner")
+    || basename.endsWith("Navbar")
+    || basename.endsWith("Panel");
+
+  if (isSection) {
+    const formatted = basename.replace(/([a-z])([A-Z])/g, "$1 $2");
+    return { kind: "section", title: formatted.endsWith("Section") ? formatted : `${formatted} Section` };
+  }
+
+  const formatted = (exportName && exportName !== "default" ? exportName : basename).replace(/([a-z])([A-Z])/g, "$1 $2");
+  return { kind: "component", title: formatted };
 }
 
 export function analyzeApplicationModule(source: string): { default: boolean; exports: string[] } {
@@ -210,10 +306,102 @@ export function analyzeApplicationModule(source: string): { default: boolean; ex
   return { default: /export\s+default\b/.test(source), exports: [...found].sort((a, b) => a.localeCompare(b)) };
 }
 
-export function previewUrl(adapter: string | undefined, origin: string, sceneId?: string): string {
+export function isAllowedDevOrigin(origin: string): boolean {
+  if (!origin || typeof origin !== "string") return false;
+  const match = /^https?:\/\/(?:\[([a-fA-F0-9:]+)\]|([^/:]+))(?::\d+)?\/?$/.exec(origin.trim());
+  if (!match) return false;
+  const ipv6 = match[1];
+  const hostname = match[2];
+  if (ipv6 === "::1" || ipv6 === "0:0:0:0:0:0:0:1") return true;
+  if (hostname) {
+    if (hostname === "localhost" || hostname === "127.0.0.1" || hostname.endsWith(".local")) return true;
+    if (/^127\.\d+\.\d+\.\d+$/.test(hostname)) return true;
+    if (/^10\.\d+\.\d+\.\d+$/.test(hostname)) return true;
+    if (/^192\.168\.\d+\.\d+$/.test(hostname)) return true;
+    const match172 = /^172\.(\d+)\.\d+\.\d+$/.exec(hostname);
+    if (match172 && Number(match172[1]) >= 16 && Number(match172[1]) <= 31) return true;
+  }
+  return false;
+}
+
+export function isDocumentApplication(adapter: string | undefined): boolean {
+  return adapter === "next-app" || adapter === "next-pages";
+}
+
+export function defaultDevOrigin(adapter: string | undefined): string {
+  return isDocumentApplication(adapter) ? "http://localhost:3000" : "http://127.0.0.1:5173";
+}
+
+export const SEENE_PROTOCOL_VERSION = 1;
+
+const safeApplicationRoute = /^\/(?:[A-Za-z0-9._~-]+\/?)*$/;
+
+export function sanitizeApplicationRoute(route: string): string | undefined {
+  const trimmed = route.trim();
+  if (!trimmed.startsWith("/")) return undefined;
+  const normalized = trimmed.replace(/\/+$/, "") || "/";
+  return safeApplicationRoute.test(normalized) ? normalized : undefined;
+}
+
+const appRouterUnit = /(?:^|\/)app\/(.*\/)?(?:page|layout)$/;
+const pagesRouterEntry = /(?:^|\/)pages\/(?:_app|_document|index)$/;
+
+function applicationModuleRoute(modulePath: string): string | undefined {
+  const value = modulePath.replace(/\.(?:[cm]?[jt]sx?)$/, "");
+  const appRouter = appRouterUnit.exec(value);
+  if (appRouter) {
+    const directories = (appRouter[1] ?? "").split("/").filter(Boolean).filter(part => !/^\(.*\)$/.test(part));
+    return sanitizeApplicationRoute("/" + directories.join("/"));
+  }
+  if (pagesRouterEntry.test(value)) return "/";
+  return undefined;
+}
+
+function relativeModulePath(bindingPath: string, specifier: string): string {
+  const stack = bindingPath.split("/").slice(0, -1);
+  for (const part of specifier.split("/")) {
+    if (!part || part === ".") continue;
+    if (part === "..") { stack.pop(); continue; }
+    stack.push(part);
+  }
+  return stack.join("/");
+}
+
+function importedSpecifiers(source: string): string[] {
+  const found = new Set<string>();
+  for (const pattern of [/from\s*["']([^"']+)["']/g, /import\s*["']([^"']+)["']/g, /import\s*\(\s*["']([^"']+)["']\s*\)/g]) {
+    for (const match of source.matchAll(pattern)) found.add(match[1]);
+  }
+  return [...found];
+}
+
+export function sceneApplicationRoute(input: { source: string; bindingPath: string }): string | undefined {
+  const declared = /<ApplicationPreview\b[^>]*\broute\s*=\s*["']([^"']+)["']/.exec(input.source);
+  if (declared) {
+    const route = sanitizeApplicationRoute(declared[1]);
+    if (route) return route;
+  }
+  for (const specifier of importedSpecifiers(input.source)) {
+    if (specifier === "next/document") return "/";
+    if (!specifier.startsWith(".")) continue;
+    const route = applicationModuleRoute(relativeModulePath(input.bindingPath, specifier));
+    if (route) return route;
+  }
+  return undefined;
+}
+
+export function applicationRouteForContent(file: string, exportName?: string): string | undefined {
+  const unit = classifyApplicationUnit(file, exportName);
+  return unit.kind === "page" && unit.route ? sanitizeApplicationRoute(unit.route) : undefined;
+}
+
+export function previewUrl(adapter: string | undefined, origin: string, sceneId?: string, applicationRoute?: string): string {
   const base = origin.replace(/\/+$/, "");
-  const route = adapter === "next-app" || adapter === "next-pages" ? "/seene" : "/";
-  return `${base}${route}?seene-preview=1${sceneId ? `&seene-scene=${sceneId}` : ""}`;
+  const route = isDocumentApplication(adapter) ? "/seene" : "/";
+  const parameters = [`${SEENE_PREVIEW_QUERY_PARAM}=1`];
+  if (sceneId) parameters.push(`${SEENE_SCENE_QUERY_PARAM}=${sceneId}`);
+  if (applicationRoute) parameters.push(`${SEENE_APPLICATION_QUERY_PARAM}=${applicationRoute}`);
+  return `${base}${route}?${parameters.join("&")}`;
 }
 
 export function platformHome(configured: string | undefined, home: string): string {
@@ -232,6 +420,7 @@ export function summarizeCatalog(catalog: SceneCatalog): PlatformCatalog {
       binding: scene.binding,
       durationMs: scene.definition.motion ? motionDuration(scene.definition.motion) : 0,
       hasSnapshot: scene.snapshot !== undefined,
+      ...(scene.application ? { applicationRoute: scene.application.route } : {}),
     })),
   };
 }

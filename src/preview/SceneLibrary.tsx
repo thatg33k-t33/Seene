@@ -1,24 +1,25 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ComponentType,
-  type FormEvent,
-  type MouseEvent,
-  type ReactNode,
-} from "react";
+import { useCallback, createElement, useEffect, useMemo, useRef, useState, type ComponentType, type FormEvent, type MouseEvent, type ReactNode } from "react";
 
 import {
+  AUTHORED_PRESENTATION,
   RESOURCES,
+  defaultSceneDefinition,
   motionDuration,
   matrixFor,
   TransformSchema,
   type SceneIssue,
 } from "../core";
+import {
+  SCENE_PRESENTATION_HEIGHT,
+  SCENE_PRESENTATION_SURFACE,
+  SCENE_PRESENTATION_WIDTH,
+  SEENE_APPLICATION_QUERY_PARAM,
+  SEENE_PROTOCOL_VERSION,
+  sanitizeApplicationRoute,
+} from "../core/platform";
 
 import { Scene, Surface, SceneErrorBoundary } from "../react";
+import { ApplicationPreview, containsDocumentContent, type ApplicationIssue } from "./application";
 import { ScenePreview } from "./ScenePreview";
 import type { PreviewHot } from "./connection";
 import { GettingStarted } from "./GettingStarted";
@@ -30,6 +31,8 @@ export type SceneLibraryProps = {
   hostContent?: ReactNode;
   hot?: PreviewHot;
   backHref?: string;
+  applicationRoute?: string;
+  onApplicationIssue?: (issue: ApplicationIssue) => void;
 };
 
 const EMPTY_SOURCES: Record<string, unknown> = {};
@@ -57,11 +60,12 @@ const view = matrixFor(
 );
 
 const SCENE_QUERY_PARAM = "seene-scene";
+const PRESENTATION_QUERY_PARAM = "seene-preset";
 
 function isPreviewQuery(): boolean {
   if (typeof window === "undefined") return false;
   const url = new URL(window.location.href);
-  return url.searchParams.get("seene-preview") === "1" || url.searchParams.get("flute-preview") === "1";
+  return url.searchParams.get("seene-preview") === "1";
 }
 
 function getSelectedSceneId(): string | undefined {
@@ -70,11 +74,16 @@ function getSelectedSceneId(): string | undefined {
   }
 
   const url = new URL(window.location.href);
-  return (
-    url.searchParams.get("seene-scene") ??
-    url.searchParams.get("flute-scene") ??
-    undefined
-  );
+  return url.searchParams.get(SCENE_QUERY_PARAM) ?? undefined;
+}
+
+function getPresentationId(): string | undefined {
+  if (typeof window === "undefined") {
+    return undefined;
+  }
+
+  const url = new URL(window.location.href);
+  return url.searchParams.get(PRESENTATION_QUERY_PARAM) ?? undefined;
 }
 
 function getVisibleRows(scroll: number, height: number, count: number) {
@@ -133,12 +142,16 @@ export function SceneLibrary({
   hostContent,
   hot,
   backHref,
+  applicationRoute,
+  onApplicationIssue,
 }: SceneLibraryProps) {
   const [entered, setEntered] = useState(() => {
     if (typeof window === "undefined") return false;
     return getSelectedSceneId() !== undefined || isPreviewQuery() || localStorage.getItem("seene-entered") === "true";
   });
+  const [entrySceneId] = useState(getSelectedSceneId);
   const [sceneId, setSceneId] = useState(getSelectedSceneId);
+  const [presentation, setPresentation] = useState(getPresentationId);
   const [scroll, setScroll] = useState(0);
   const [size, setSize] = useState({
     width: 1200,
@@ -186,6 +199,25 @@ export function SceneLibrary({
     ? bindings[selectedScene.binding]
     : undefined;
 
+  const requestedApplicationRoute = sanitizeApplicationRoute(applicationRoute ?? "");
+
+  const applicationRouteFor = useCallback(
+    (scene?: { id: string; application?: { route: string } }) => {
+      if (!scene) return undefined;
+      if (scene.application) return sanitizeApplicationRoute(scene.application.route);
+      if (entrySceneId === undefined || entrySceneId === scene.id) return requestedApplicationRoute;
+      return undefined;
+    },
+    [entrySceneId, requestedApplicationRoute],
+  );
+
+  const documentRoute = applicationRouteFor(selectedScene);
+
+  const selectedIsDocument = SelectedComponent
+    ? containsDocumentContent(createElement(SelectedComponent, { children: hostContent }))
+    : false;
+  const effectiveRoute = documentRoute ?? (selectedIsDocument ? (requestedApplicationRoute ?? "/") : undefined);
+
   useEffect(() => {
     const handlePopState = () => {
       setSceneId(getSelectedSceneId());
@@ -199,7 +231,7 @@ export function SceneLibrary({
   }, []);
 
   useEffect(() => {
-    if (selectedScene && SelectedComponent) {
+    if (selectedScene && (SelectedComponent || documentRoute || selectedIsDocument)) {
       return;
     }
 
@@ -226,9 +258,9 @@ export function SceneLibrary({
     return () => {
       observer.disconnect();
     };
-  }, [selectedScene?.id, SelectedComponent]);
+  }, [selectedScene?.id, SelectedComponent, documentRoute]);
 
-  const buildDestination = useCallback((id?: string) => {
+  const buildDestination = useCallback((id?: string, nextPresentation?: string) => {
     const url = new URL(window.location.href);
 
     if (id) {
@@ -237,8 +269,22 @@ export function SceneLibrary({
       url.searchParams.delete(SCENE_QUERY_PARAM);
     }
 
+    const route = id ? applicationRouteFor(catalog.scenes.find(scene => scene.id === id)) : undefined;
+    if (route) {
+      url.searchParams.set(SEENE_APPLICATION_QUERY_PARAM, route);
+    } else {
+      url.searchParams.delete(SEENE_APPLICATION_QUERY_PARAM);
+    }
+
+    const chosen = nextPresentation ?? presentation;
+    if (chosen) {
+      url.searchParams.set(PRESENTATION_QUERY_PARAM, chosen);
+    } else {
+      url.searchParams.delete(PRESENTATION_QUERY_PARAM);
+    }
+
     return url.pathname + url.search + url.hash;
-  }, []);
+  }, [presentation, applicationRouteFor, catalog.scenes]);
 
   const navigate = useCallback(
     (event: MouseEvent<HTMLAnchorElement>, id?: string) => {
@@ -269,6 +315,15 @@ export function SceneLibrary({
     setSceneId(undefined);
   }, [buildDestination]);
 
+  const changePresentation = useCallback(
+    (next: string) => {
+      const chosen = next === AUTHORED_PRESENTATION ? undefined : next;
+      window.history.pushState({}, "", buildDestination(sceneId, chosen));
+      setPresentation(chosen);
+    },
+    [buildDestination, sceneId],
+  );
+
   const openCreateDialog = () => {
     setCreateTitle("");
     setCreateDescription("");
@@ -292,16 +347,29 @@ export function SceneLibrary({
       id,
       title,
       description: createDescription.trim() || "Authored in Seene Studio",
-      definition: {
-        scene: {
-          version: 3,
-          camera: { perspective: 1800, rotateX: 4, rotateY: -7 },
-          focus: { distance: 1800, fStop: 8, focalLength: 50, maxBlur: 6 },
-          nodes: [{ id: "seene-application" }]
-        },
-        motion: { durationMs: 4000, tracks: [] }
-      }
+      definition: defaultSceneDefinition(),
     };
+
+    const isIframe = typeof window !== "undefined" && window.parent !== window;
+
+    if (isIframe) {
+      try {
+        window.parent.postMessage({
+          type: "SEENE_CLIENT_CREATE_SCENE",
+          version: SEENE_PROTOCOL_VERSION,
+          draft: { id, title, description: createDescription.trim() || "Authored in Seene Studio" }
+        }, "*");
+        setIsCreating(false);
+        const destination = buildDestination(id);
+        window.history.pushState({}, "", destination);
+        setSceneId(id);
+        return;
+      } catch (err: any) {
+        setCreateError("Failed to request scene creation via Studio: " + (err?.message || String(err)));
+        setCreateSubmitting(false);
+        return;
+      }
+    }
 
     try {
       const res = await fetch("/__seene/create-scene", {
@@ -309,8 +377,14 @@ export function SceneLibrary({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, recipe })
       });
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        setCreateError(`The development server at ${window.location.origin} returned HTML instead of JSON. Make sure Seene Studio is connected.`);
+        setCreateSubmitting(false);
+        return;
+      }
       const data = await res.json();
-      if (data.success) {
+      if (res.ok && data.success) {
         setIsCreating(false);
         const destination = buildDestination(id);
         window.history.pushState({}, "", destination);
@@ -338,7 +412,7 @@ export function SceneLibrary({
     );
   }
 
-  if (selectedScene && SelectedComponent) {
+  if (selectedScene && (effectiveRoute || SelectedComponent)) {
     return (
       <ScenePreview
         key={selectedScene.id}
@@ -347,8 +421,26 @@ export function SceneLibrary({
         backHref={buildDestination()}
         onBack={closeScene}
         hot={hot}
+        presentation={presentation}
+        onPresentationChange={changePresentation}
       >
-        <SelectedComponent>{hostContent}</SelectedComponent>
+        {effectiveRoute ? (
+          <Surface
+            id={SCENE_PRESENTATION_SURFACE}
+            style={{
+              width: SCENE_PRESENTATION_WIDTH,
+              height: SCENE_PRESENTATION_HEIGHT,
+            }}
+          >
+            <ApplicationPreview
+              route={effectiveRoute}
+              title={selectedScene.title}
+              onIssue={onApplicationIssue}
+            />
+          </Surface>
+        ) : SelectedComponent ? (
+          <SelectedComponent>{hostContent}</SelectedComponent>
+        ) : null}
       </ScenePreview>
     );
   }
@@ -361,11 +453,11 @@ export function SceneLibrary({
     height + Math.max(0, (catalog.scenes.length - 1) * ROW_HEIGHT);
 
   return (
-    <main data-seene-library="" className="fixed inset-0 isolate overflow-hidden bg-[#111114] text-[#f1f1f4]">
+    <main data-seene-library="" className="fixed inset-0 isolate overflow-hidden bg-[var(--seene-bg)] text-[var(--seene-text)]">
       {sceneId && (
-        <div className="absolute top-4 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-[#303038] bg-[#1a1a1f] px-5 py-3 text-xs text-[#85858e] shadow-lg" role="alert">
-          <span className="text-[#f1f1f4]">This scene can&apos;t be opened.</span> Fix its source file or{" "}
-          <a href={buildDestination()} onClick={(event) => navigate(event)} className="text-[#f1f1f4] underline hover:text-white">
+        <div className="absolute top-4 left-1/2 z-50 -translate-x-1/2 rounded-xl border border-[var(--seene-border)] bg-[var(--seene-surface-2)] px-5 py-3 text-xs text-[var(--seene-text-muted)] shadow-lg" role="alert">
+          <span className="text-[var(--seene-text)]">This scene can&apos;t be opened.</span> Fix its source file or{" "}
+          <a href={buildDestination()} onClick={(event) => navigate(event)} className="text-[var(--seene-text)] underline hover:text-white">
             go back to all scenes
           </a>
           .
@@ -373,15 +465,15 @@ export function SceneLibrary({
       )}
 
       {catalog.issues.length > 0 && (
-        <details className="absolute top-16 left-1/2 z-50 -translate-x-1/2 max-w-lg rounded-xl border border-[#303038] bg-[#1a1a1f] p-4 text-xs text-[#85858e]">
-          <summary className="cursor-pointer font-medium text-[#f1f1f4]">
+        <details className="absolute top-16 left-1/2 z-50 -translate-x-1/2 max-w-lg rounded-xl border border-[var(--seene-border-text)] bg-[var(--seene-surface-2)] p-4 text-xs text-[var(--seene-text-muted)]">
+          <summary className="cursor-pointer font-medium text-[var(--seene-text)]">
             Some scene files have problems ({catalog.issues.length})
           </summary>
 
           <ul className="mt-2 space-y-1 pl-4 list-disc">
             {catalog.issues.map((issue, index) => (
               <li key={`${issue.path}-${index}`}>
-                <strong className="text-[#f1f1f4]">{issue.path}</strong>
+                <strong className="text-[var(--seene-text)]">{issue.path}</strong>
                 {": "}
                 {issue.message}
               </li>
@@ -394,7 +486,7 @@ export function SceneLibrary({
         <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center">
           <div className="max-w-md space-y-4">
             <h1 className="text-3xl font-medium tracking-tight text-white">Your scenes will show up here.</h1>
-            <p className="text-sm text-[#85858e]">Create your first cinematic scene to showcase your React components.</p>
+            <p className="text-sm text-[var(--seene-text-muted)]">Create your first cinematic scene to showcase your React components.</p>
             <button
               type="button"
               onClick={openCreateDialog}
@@ -453,21 +545,21 @@ export function SceneLibrary({
                         height: HEADING_HEIGHT,
                       }}
                     >
-                      <header className="flex items-center justify-between border-b border-[#303038] pb-4 pointer-events-auto">
+                      <header className="flex items-center justify-between border-b border-[var(--seene-border-text)] pb-4 pointer-events-auto">
                         <div className="flex items-center gap-4">
-                          <h1 className="text-sm font-semibold tracking-wider text-[#85858e] uppercase">
+                          <h1 className="text-sm font-semibold tracking-wider text-[var(--seene-text-muted)] uppercase">
                             Your scenes
                           </h1>
                           <button
                             type="button"
                             onClick={openCreateDialog}
-                            className="appearance-none border border-white/20 rounded-full px-3 py-1.5 bg-[#242424] text-white text-xs font-medium inline-flex items-center gap-1.5 cursor-pointer hover:bg-[#3a3a3a] transition-colors"
+                            className="appearance-none border border-white/20 rounded-full px-3 py-1.5 bg-[var(--seene-surface-2)] text-white text-xs font-medium inline-flex items-center gap-1.5 cursor-pointer bg-[var(--seene-surface-2)] transition-colors"
                           >
                             + Create scene
                           </button>
                         </div>
 
-                        <span className="text-xs font-mono text-[#85858e]">
+                        <span className="text-xs font-mono text-[var(--seene-text-muted)]">
                           {catalog.scenes.length}{" "}
                           {catalog.scenes.length === 1 ? "scene" : "scenes"}
                         </span>
@@ -494,7 +586,7 @@ export function SceneLibrary({
                           }}
                         >
                           <a
-                            className="group flex items-center justify-between gap-6 border-b border-[#222228] py-6 transition-colors hover:border-[#303038] focus-visible:outline-2 focus-visible:outline-white"
+                            className="group flex items-center justify-between gap-6 border-b border-[var(--seene-border)] py-6 transition-colors hover:border-[var(--seene-border-text)] focus-visible:outline-2 focus-visible:outline-white"
                             data-scene-id={scene.id}
                             href={buildDestination(scene.id)}
                             onFocus={(event) => {
@@ -509,7 +601,7 @@ export function SceneLibrary({
                             }}
                             onClick={(event) => navigate(event, scene.id)}
                           >
-                            <span className="relative flex h-12 w-16 shrink-0 items-center justify-center rounded-md bg-[#1a1a1f] border border-[#303038] font-mono text-xs text-[#85858e]">
+                            <span className="relative flex h-12 w-16 shrink-0 items-center justify-center rounded-md bg-[var(--seene-surface-2)] border border-[var(--seene-border-text)] font-mono text-xs text-[var(--seene-text-muted)]">
                               {String(number + 1).padStart(2, "0")}
 
                               {scene.snapshot && (
@@ -518,16 +610,16 @@ export function SceneLibrary({
                             </span>
 
                             <span className="flex flex-1 flex-col min-w-0">
-                              <strong className="text-base font-medium text-[#f1f1f4] group-hover:text-white truncate">
+                              <strong className="text-base font-medium text-[var(--seene-text)] group-hover:text-white truncate">
                                 {scene.title}
                               </strong>
 
-                              <span className="text-xs text-[#85858e] truncate mt-0.5">
+                              <span className="text-xs text-[var(--seene-text-muted)] truncate mt-0.5">
                                 {scene.description || "A scene from your app"}
                               </span>
                             </span>
 
-                            <span className="flex items-center gap-2 font-mono text-xs text-[#85858e] group-hover:text-[#f1f1f4]">
+                            <span className="flex items-center gap-2 font-mono text-xs text-[var(--seene-text-muted)] group-hover:text-[var(--seene-text)]">
                               {duration}s<span aria-hidden="true">↗</span>
                             </span>
                           </a>
@@ -544,7 +636,7 @@ export function SceneLibrary({
 
       {catalog.scenes.length > 0 && (
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 pointer-events-none z-40">
-          <p className="rounded-full border border-[#303038] bg-[#1a1a1f]/90 px-4 py-2 font-mono text-[11px] text-[#85858e] shadow-md backdrop-blur-md">
+          <p className="rounded-full border border-[var(--seene-border-text)] bg-[var(--seene-surface-2)]/90 px-4 py-2 font-mono text-[11px] text-[var(--seene-text-muted)] shadow-md backdrop-blur-md">
             Scroll to browse · Click a scene to play
           </p>
         </div>
@@ -552,16 +644,16 @@ export function SceneLibrary({
 
       {isCreating && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200 pointer-events-auto">
-          <div className="w-full max-w-md rounded-2xl border border-[#303038] bg-[#1a1a1f] p-6 text-[#f1f1f4] shadow-2xl space-y-5">
-            <div className="flex items-center justify-between border-b border-[#303038] pb-4">
+          <div className="w-full max-w-md rounded-2xl border border-[var(--seene-border-text)] bg-[var(--seene-surface-2)] p-6 text-[var(--seene-text)] shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-[var(--seene-border-text)] pb-4">
               <div>
                 <h2 className="text-lg font-semibold text-white">Create new scene</h2>
-                <p className="text-xs text-[#85858e] mt-1">Name your scene. Seene will generate the recipe and component files in your project.</p>
+                <p className="text-xs text-[var(--seene-text-muted)] mt-1">Name your scene. Seene will generate the recipe and component files in your project.</p>
               </div>
               <button
                 type="button"
                 onClick={() => { setIsCreating(false); setCreateError(""); }}
-                className="text-[#85858e] hover:text-white text-sm p-1 cursor-pointer"
+                className="text-[var(--seene-text-muted)] hover:text-white text-sm p-1 cursor-pointer"
                 aria-label="Close"
               >
                 ✕
@@ -570,7 +662,7 @@ export function SceneLibrary({
 
             <form onSubmit={handleCreateSubmit} className="space-y-4">
               <div>
-                <label htmlFor="seene-create-title" className="block text-xs font-medium text-[#85858e] uppercase tracking-wider mb-2">
+                <label htmlFor="seene-create-title" className="block text-xs font-medium text-[var(--seene-text-muted)] uppercase tracking-wider mb-2">
                   Scene Title
                 </label>
                 <input
@@ -581,13 +673,13 @@ export function SceneLibrary({
                   placeholder="e.g. Dashboard Showcase"
                   value={createTitle}
                   onChange={(e) => setCreateTitle(e.target.value)}
-                  className="w-full rounded-lg border border-[#303038] bg-[#111114] px-4 py-2.5 text-sm text-[#f1f1f4] placeholder-[#55555d] focus:border-white focus:outline-none"
+                  className="w-full rounded-lg border border-[var(--seene-border-text)] bg-[var(--seene-surface-2)] px-4 py-2.5 text-sm text-[var(--seene-text)] placeholder-[#55555d] focus:border-white focus:outline-none"
                 />
               </div>
 
               <div>
-                <label htmlFor="seene-create-desc" className="block text-xs font-medium text-[#85858e] uppercase tracking-wider mb-2">
-                  Description <span className="text-[#55555d] font-normal">(optional)</span>
+                <label htmlFor="seene-create-desc" className="block text-xs font-medium text-[var(--seene-text-muted)] uppercase tracking-wider mb-2">
+                  Description <span className="text-[var(--seene-text-muted)] font-normal">(optional)</span>
                 </label>
                 <input
                   id="seene-create-desc"
@@ -595,7 +687,7 @@ export function SceneLibrary({
                   placeholder="e.g. A cinematic overview of the analytics panel"
                   value={createDescription}
                   onChange={(e) => setCreateDescription(e.target.value)}
-                  className="w-full rounded-lg border border-[#303038] bg-[#111114] px-4 py-2.5 text-sm text-[#f1f1f4] placeholder-[#55555d] focus:border-white focus:outline-none"
+                  className="w-full rounded-lg border border-[var(--seene-border-text)] bg-[var(--seene-surface-2)] px-4 py-2.5 text-sm text-[var(--seene-text)] placeholder-[#55555d] focus:border-white focus:outline-none"
                 />
               </div>
 
@@ -609,7 +701,7 @@ export function SceneLibrary({
                 <button
                   type="button"
                   onClick={() => { setIsCreating(false); setCreateError(""); }}
-                  className="rounded-lg border border-[#303038] px-4 py-2 text-xs font-medium text-[#85858e] hover:border-[#55555d] hover:text-white transition-colors cursor-pointer"
+                  className="rounded-lg border border-[var(--seene-border-text)] px-4 py-2 text-xs font-medium text-[var(--seene-text-muted)] hover:border-[#55555d] hover:text-white transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>

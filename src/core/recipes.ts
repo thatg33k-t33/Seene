@@ -16,12 +16,18 @@ export const SceneSnapshotSchema=z.strictObject({
  image:z.string().max(128_000).regex(/^data:image\/png;base64,iVBORw0KGgo[A-Za-z0-9+/]*={0,2}$/,"Use a Seene-generated PNG snapshot."),
  timeMs:z.number().finite().nonnegative().max(120_000),
 });
+export const SceneApplicationRouteSchema = z.string().trim().min(1).max(400)
+  .regex(/^\/(?:[A-Za-z0-9._~-]+\/?)*$/, "Use an application route containing letters, digits, dots, dashes and slashes, for example /dashboard.");
+export const SceneApplicationSchema = z.strictObject({
+  route: SceneApplicationRouteSchema,
+});
 export const SceneRecipeSchema = z.strictObject({
   version: z.literal(1),
   id: SceneRecipeIdSchema,
   title: z.string().trim().min(1).max(120),
   description: z.string().trim().max(500).optional(),
   definition: PreviewDefinitionSchema,
+  application: SceneApplicationSchema.optional(),
   snapshot: SceneSnapshotSchema.optional(),
 });
 export type SceneRecipeInput = z.input<typeof SceneRecipeSchema>;
@@ -33,7 +39,7 @@ export type SceneCatalog = {
   issues: SceneIssue[];
 };
 function canonicalSourcePath(target: string): boolean {
-  return /^(?:src\/seene\/scenes\/|src\/flute\/scenes\/)[a-z0-9]+(?:-[a-z0-9]+)*\.scene\.json$/.test(target);
+  return /^src\/seene\/scenes\/[a-z0-9]+(?:-[a-z0-9]+)*\.scene\.json$/.test(target);
 }
 export function loadSceneRecipes(input: unknown): SceneCatalog {
   if (!input || typeof input !== "object" || !("sources" in input) || !("bindingPaths" in input)

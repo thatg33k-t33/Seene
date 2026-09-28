@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { platformApi, settingsHref, studioHref } from "./api";
 import { useResource } from "./data";
 import { Command, Notice, Panel, StatusPill, buttonPrimary, buttonQuiet, fieldClass } from "./ui";
-import { FrameSection, Kbd } from "./site";
+import { FrameSection, Kbd, PlusIcon, SeeneButton } from "./site";
 
 const WORKFLOW_STEPS = [
   {
@@ -154,27 +154,9 @@ export function ProjectsView() {
             placeholder="/Users/you/projects/my-app"
             onChange={event => setTarget(event.target.value)}
           />
-          <button
-            type="submit"
-            className={`${buttonPrimary} shrink-0 gap-1.5`}
-            disabled={busy || !target.trim()}
-            aria-keyshortcuts="r"
-          >
-            {busy ? (
-              <>
-                <span className="seene-spinner" aria-hidden="true" />
-                <span>Registering…</span>
-              </>
-            ) : (
-              <>
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-                  <path d="M7 2v10M2 7h10" strokeLinecap="round" />
-                </svg>
-                <span>Register project</span>
-                <kbd aria-hidden="true" className="seene-kbd seene-kbd-on-primary">R</kbd>
-              </>
-            )}
-          </button>
+           {/* <SenteButton variant="primary" size="cta" kbd={<Kbd onPrimary>R</Kbd>} loading={busy} disabled={!target.trim()} className="shrink-0 gap-1.5" type="submit" aria-keyshortcuts="r">
+              <PlusIcon /> Register project
+            </SenteButton> */}
         </form>
         {error && <div className="mt-3"><Notice>{error}</Notice></div>}
       </Panel>

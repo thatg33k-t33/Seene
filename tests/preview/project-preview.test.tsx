@@ -2,7 +2,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cameraToCss, evaluateScene } from "../../src/core";
+import { cameraToCss, defaultSceneDefinition, evaluateScene } from "../../src/core";
 import { ProjectPreview } from "../../src/preview";
 
 let resize: () => void;
@@ -61,15 +61,16 @@ it("uses canonical camera and progressive focus while preserving host context, e
   expect(button.textContent).toBe("API data: 1");
   expect(document.querySelectorAll("[data-seene-scene]")).toHaveLength(1);
   expect(document.querySelectorAll("[data-seene-id]")).toHaveLength(1);
-  const camera = { perspective: 1800, rotateX: 4, rotateY: -7 };
-  const focus = { distance:1800, fStop:8, maxBlur:6 };
+  const { scene } = defaultSceneDefinition();
+  const camera = scene.camera!;
+  const focus = scene.focus!;
   const expected = evaluateScene({ camera, focus, nodes: [{ id: "seene-application" }] }, {
     "seene-application": { width, height: 600, offsetX: 0, offsetY: 0 },
   });
   const stage = document.querySelector<HTMLElement>("[data-seene-stage]")!;
   const surface = document.querySelector<HTMLElement>("[data-seene-id]")!;
   expect(stage.style.transform).toBe(cameraToCss(camera));
-  expect(stage.parentElement!.style.perspective).toBe("1800px");
+  expect(stage.parentElement!.style.perspective).toBe(`${camera.perspective}px`);
   expect(Number(surface.dataset.seeneBlur)).toBe(expected.nodes[0].blur);
   const expectedBlur = expected.nodes[0].blur;
   expect(surface.querySelector<HTMLElement>("[data-seene-content]")!.style.filter).toBe(expectedBlur > 0 ? `blur(${expectedBlur}px)` : "");

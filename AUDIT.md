@@ -109,7 +109,7 @@ None identified in core layer boundaries. Architecture checks (`pnpm run test:ar
 
 ## Duplicate Implementations
 
-- Legacy `src/flute/scenes` read path retained in `src/core/recipes.ts` for backward compatibility. Canonical directory is `src/seene/scenes`.
+- Canonical scene directory is `src/seene/scenes`.
 - No competing scene engines or duplicate surface registries exist.
 
 ## Styling Audit

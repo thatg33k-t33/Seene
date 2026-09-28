@@ -45,17 +45,18 @@ try {
   const originalPackage=JSON.parse(await readFile(path.join(host,'package.json'),'utf8'));
   let tarball;
   if(!registryPackage) {
-  const packed=JSON.parse(await ok('npm',['pack','--json',...(process.env.SEENE_VERIFY_PREBUILT==='1'?['--ignore-scripts']:[]),'--pack-destination',scratch],root));
-  tarball=path.join(scratch,packed[0].filename);
-  assert.ok(packed[0].files.some(f=>f.path==='dist/cli/seene.js'));
-  assert.ok(packed[0].files.some(f=>f.path==='LICENSE'));
-  assert.ok(packed[0].files.some(f=>f.path==='README.md'));
-  assert.ok(!packed[0].files.some(f=>/^(tests|app|src|docs|scripts)\//.test(f.path)));
+  const packedRaw=JSON.parse(await ok('npm',['pack','--json',...(process.env.SEENE_VERIFY_PREBUILT==='1'?['--ignore-scripts']:[]),'--pack-destination',scratch],root));
+  const packed=Array.isArray(packedRaw)?packedRaw[0]:Object.values(packedRaw)[0];
+  tarball=path.join(scratch,packed.filename);
+  assert.ok(packed.files.some(f=>f.path==='dist/cli/seene.js'));
+  assert.ok(packed.files.some(f=>f.path==='LICENSE'));
+  assert.ok(packed.files.some(f=>f.path==='README.md'));
+  assert.ok(!packed.files.some(f=>/^(tests|app|src|docs|scripts)\//.test(f.path)));
   const metadata=JSON.parse(await readFile(path.join(root,'package.json'),'utf8'));
   assert.equal(metadata.license,'MIT');
   assert.notEqual(metadata.private,true);
-  assert.ok(packed[0].files.some(f=>f.path==='dist/library/preview.js'));
-  assert.ok(!packed[0].files.some(f=>f.path.includes('.env')));
+  assert.ok(packed.files.some(f=>f.path==='dist/library/preview.js'));
+  assert.ok(!packed.files.some(f=>f.path.includes('.env')));
   }
   await ok('npm',['install','--ignore-scripts','--no-audit','--no-fund']);
   const chosen=await port();const origin=`http://127.0.0.1:${chosen}`;
@@ -88,7 +89,7 @@ try {
   const cli=path.join(host,'node_modules/@thatg33k/seene/dist/cli/seene.js');
   const installedGuide=JSON.parse(await ok(process.execPath,[cli,'guide','--json']));
   const publicGuide=JSON.parse(await ok(process.execPath,['--input-type=module','-e',"import {getAuthoringGuide} from '@thatg33k/seene'; console.log(JSON.stringify(getAuthoringGuide()))"]));
-  assert.deepEqual(installedGuide,publicGuide,'Installed CLI and browser-compatible package share the exact guide');
+  assert.deepEqual(installedGuide,publicGuide);
   assert.equal(installedGuide.version,2);
   assert.ok(installedGuide.concepts.some(c=>c.id==='focus'));
   assert.ok((await ok(process.execPath,[cli,'--help'])).includes('seene guide'));
@@ -111,7 +112,7 @@ try {
   await mkdir(path.join(host,'src/seene/scenes'),{recursive:true});
   await writeFile(path.join(host,'src/seene/scenes/revenue.scene.json'),JSON.stringify({version:1,id:'revenue',title:'Revenue scene',definition:{scene:{nodes:[{id:'host'}]}}}));
   await writeFile(path.join(host,'src/seene/scenes/revenue.tsx'),`import {Surface} from '@thatg33k/seene';import {App,DashboardProvider} from '../../App';export default function RevenueScene(){return <DashboardProvider><Surface id="host" style={{width:1400,height:980}}><App/></Surface></DashboardProvider>}`);
-  browser=await chromium.launch({channel:'chromium',headless:true});
+  try{browser=await chromium.launch({channel:'chromium',headless:true})}catch{browser=await chromium.launch({channel:'chrome',headless:true})}
   const page=await browser.newPage({viewport:{width:1440,height:1000}});
   let requests=0;const errors=[];
   page.on('request',r=>{if(r.url().endsWith('/api/value'))requests++});page.on('pageerror',e=>errors.push(e.message));

@@ -21,6 +21,10 @@ export function CreateSceneDialog({ project, onClose, onCreated }: { project: st
   const [saving, setSaving] = useState(false);
   const id = useMemo(() => sceneIdFromTitle(title), [title]);
 
+  const pages = useMemo(() => content.data?.content.files.filter(f => f.kind === "page") ?? [], [content.data]);
+  const sections = useMemo(() => content.data?.content.files.filter(f => f.kind === "section") ?? [], [content.data]);
+  const components = useMemo(() => content.data?.content.files.filter(f => !f.kind || f.kind === "component") ?? [], [content.data]);
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!id) { setError("Use a scene name containing letters or digits."); return; }
@@ -39,44 +43,65 @@ export function CreateSceneDialog({ project, onClose, onCreated }: { project: st
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8 backdrop-blur-sm">
-      <section role="dialog" aria-label="Create scene" className="max-h-full w-full max-w-2xl overflow-y-auto rounded-2xl border border-[#222228] bg-[#16161a]">
-        <header className="flex items-center justify-between border-b border-[#222228] px-6 py-5">
-          <h2 className="text-lg font-medium text-[#f1f1f4]">Create scene</h2>
+    <div role="dialog" aria-label="Create scene" className="max-h-full w-full max-w-2xl overflow-y-auto rounded-2xl border border-[var(--seene-border)] bg-[var(--seene-bg)]">
+      <header className="flex items-center justify-between border-b border-[var(--seene-border)] px-6 py-5">
+        <h2 className="text-lg font-medium text-[var(--seene-text)]">Create scene</h2>
           <button type="button" className={buttonQuiet} onClick={onClose}>Close</button>
         </header>
         <form className="space-y-6 px-6 py-5" onSubmit={submit}>
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-[#f1f1f4]" htmlFor="scene-name">Scene name</label>
+            <label className="block text-sm font-medium text-[var(--seene-text)]" htmlFor="scene-name">Scene name</label>
             <input id="scene-name" className={fieldClass} value={title} placeholder="Dashboard overview" onChange={event => setTitle(event.target.value)} />
-            {id && <p className="font-mono text-xs text-[#85858e]">{`src/seene/scenes/${id}.scene.json`}</p>}
+            {id && <p className="font-mono text-xs text-[var(--seene-text-muted)]">{`src/seene/scenes/${id}.scene.json`}</p>}
           </div>
 
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-[#f1f1f4]" htmlFor="scene-content">Choose application content</label>
+            <label className="block text-sm font-medium text-[var(--seene-text)]" htmlFor="scene-content">Choose application content</label>
             <select id="scene-content" className={fieldClass} value={choice} onChange={event => setChoice(event.target.value)}>
-              <option value="">Your whole application</option>
-              {content.data?.content.files.map(file => (
-                <optgroup key={file.path} label={file.path}>
-                  {file.default && <option value={selectionValue({ file: file.path })}>{`${file.path} (default export)`}</option>}
-                  {file.exports.map(exported => <option key={exported} value={selectionValue({ file: file.path, export: exported })}>{`${file.path} → ${exported}`}</option>)}
+              <option value="">Your whole application (Default)</option>
+              {pages.length > 0 && (
+                <optgroup label="Pages">
+                  {pages.map(file => (
+                    <option key={file.path} value={selectionValue({ file: file.path })}>
+                      {`${file.title || file.path}${file.route ? ` (${file.route})` : ""}`}
+                    </option>
+                  ))}
                 </optgroup>
-              ))}
+              )}
+              {sections.length > 0 && (
+                <optgroup label="Sections">
+                  {sections.map(file => (
+                    <option key={file.path} value={selectionValue({ file: file.path })}>
+                      {file.title || file.path}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {components.length > 0 && (
+                <optgroup label="Components">
+                  {components.map(file => (
+                    <option key={file.path} value={selectionValue({ file: file.path })}>
+                      {file.title || file.path}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
-            <p className="text-xs text-[#85858e]">
-              {content.loading ? "Reading your application…" : content.data ? `${content.data.content.files.length} application modules found in this project.` : content.error || "Application content could not be read."}
+            <p className="text-xs text-[var(--seene-text-muted)]">
+              {content.loading ? "Reading your application…" : content.data ? `${content.data.content.files.length} application targets (Pages, Sections, Components) found.` : content.error || "Application content could not be read."}
             </p>
           </div>
 
           {error && <Notice>{error}</Notice>}
-          <p className="text-xs text-[#55555d]">
+          <p className="text-xs text-[var(--seene-text-muted)]">
             Seene presents the UI you already have. Your application's components and providers stay the source of truth; the scene starts with a camera, focus and motion you edit in the studio.
           </p>
-          <div className="flex items-center justify-end gap-2">
-            <a className={buttonQuiet} href={studioHref(project)} onClick={onClose}>Cancel</a>
-            <button type="submit" className={buttonPrimary} disabled={saving || !title.trim()}>{saving ? "Creating…" : "Create scene"}</button>
+           <div className="flex items-center justify-end gap-2">
+                <a className={buttonQuiet} href={studioHref(project)} onClick={onClose}>Cancel</a>
+                <button type="submit" className={buttonPrimary} disabled={saving || !title.trim()}>{saving ? "Creating…" : "Create scene"}</button>
+              </div>
+            </form>
           </div>
-        </form>
-      </section>
-    </div>
+        </div>
   );
 }
