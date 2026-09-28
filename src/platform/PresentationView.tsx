@@ -33,7 +33,7 @@ export function PresentationView({ project, scene }: { project: string; scene: s
   };
 
   if (catalog.error) return <div className="px-6 py-10"><Notice>{catalog.error}</Notice></div>;
-  if (catalog.loading && !catalog.data) return <p className="px-6 py-10 text-sm text-[#85858e]">Preparing the experience…</p>;
+  if (catalog.loading && !catalog.data) return <p className="px-6 py-10 text-sm text-[var(--seene-text-muted)]">Preparing the experience…</p>;
   if (!current) {
     return (
       <div className="space-y-4 px-6 py-10">
@@ -45,11 +45,11 @@ export function PresentationView({ project, scene }: { project: string; scene: s
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)] flex-col">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#222228] px-6 py-3">
-        <a className="font-mono text-xs text-[#85858e] hover:text-[#f1f1f4]" href={studioHref(project)}>Exit presentation</a>
-        <p className="text-sm font-medium text-[#f1f1f4]">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--seene-border-text)] px-6 py-3">
+        <a className="font-mono text-xs text-[var(--seene-text-muted)] hover:text-[var(--seene-text)]" href={studioHref(project)}>Exit presentation</a>
+        <p className="text-sm font-medium text-[var(--seene-text)]">
           {current.title}
-          <span className="ml-3 font-mono text-xs text-[#85858e]">{`${index + 1} / ${scenes.length}`}</span>
+          <span className="ml-3 font-mono text-xs text-[var(--seene-text-muted)]">{`${index + 1} / ${scenes.length}`}</span>
         </p>
         <div className="flex items-center gap-2">
           {index > 0 && <a className={buttonQuiet} href={presentHref(project, scenes[index - 1].id)}>Previous</a>}

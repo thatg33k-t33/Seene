@@ -91,7 +91,7 @@ export function GettingStarted({ onStartCreating }: GettingStartedProps) {
                   <button
                     type="button"
                     onClick={() => setStarted(true)}
-                    className="mt-12 inline-flex h-14 items-center justify-center rounded-xl bg-[#f1f1f4] px-8 text-base font-medium text-[var(--seene-text)] transition-all duration-200 hover:scale-[1.02] hover:bg-white focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-4"
+                    className="mt-12 inline-flex h-14 items-center justify-center rounded-xl bg-[var(--seene-surface-2)] px-8 text-base font-medium text-[var(--seene-text)] transition-all duration-200 hover:scale-[1.02] hover:bg-white focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-4"
                   >
                     Get started
                   </button>
@@ -113,7 +113,7 @@ export function GettingStarted({ onStartCreating }: GettingStartedProps) {
                           {currentStep.number}
                         </span>
 
-                        <span className="h-px w-10 bg-[#303038]" />
+                        <span className="h-px w-10 bg-[var(--seene-border-text)]" />
 
                         <span className="text-sm font-medium uppercase tracking-[0.18em] text-[var(--seene-text-muted)]">
                           Getting started
@@ -145,7 +145,7 @@ export function GettingStarted({ onStartCreating }: GettingStartedProps) {
                   <button
                     type="button"
                     onClick={handleBack}
-                    className="inline-flex h-11 items-center justify-center rounded-lg border border-[var(--seene-border-text)] px-5 text-sm font-medium text-[var(--seene-text-muted)] transition-colors hover:border-[#55555d] hover:text-[var(--seene-text)] focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-4"
+                    className="inline-flex h-11 items-center justify-center rounded-lg border border-[var(--seene-border-text)] px-5 text-sm font-medium text-[var(--seene-text-muted)] transition-colors hover:border-[var(--seene-border-text)] hover:text-[var(--seene-text)] focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-4"
                   >
                     {isFirstStep ? "Back" : "Back"}
                   </button>
@@ -159,10 +159,10 @@ export function GettingStarted({ onStartCreating }: GettingStartedProps) {
                         key={item.number}
                         className={`h-1 rounded-full transition-all duration-500 ${
                           index === step
-                            ? "w-8 bg-[#f1f1f4]"
+                            ? "w-8 bg-[var(--seene-surface-2)]"
                             : index < step
-                              ? "w-2 bg-[#85858e]"
-                              : "w-2 bg-[#303038]"
+                              ? "w-2 bg-[var(--seene-text-muted)]"
+                              : "w-2 bg-[var(--seene-border-text)]"
                         }`}
                       />
                     ))}
@@ -171,7 +171,7 @@ export function GettingStarted({ onStartCreating }: GettingStartedProps) {
                   <button
                     type="button"
                     onClick={handleNext}
-                    className="inline-flex h-11 items-center justify-center rounded-lg bg-[#f1f1f4] px-6 text-sm font-medium text-[var(--seene-text)] transition-all duration-200 hover:bg-white focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-4"
+                    className="inline-flex h-11 items-center justify-center rounded-lg bg-[var(--seene-surface-2)] px-6 text-sm font-medium text-[var(--seene-text)] transition-all duration-200 hover:bg-white focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-4"
                   >
                     {isLastStep ? "Start creating" : "Next"}
                   </button>
@@ -192,7 +192,7 @@ export function GettingStarted({ onStartCreating }: GettingStartedProps) {
             >
               THATG33K
             </a>
-            <span className="mx-2 text-[#303038]">·</span>
+            <span className="mx-2 text-[var(--seene-border-text)]">·</span>
             <a
               href="https://github.com/orgs/thatg33k-t33/"
               target="_blank"

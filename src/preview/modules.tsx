@@ -101,7 +101,7 @@ export function SceneModuleLibrary({
     return (
       <div
         role="status"
-        style={{ padding: 40, color: "#eee", background: "#000" }}
+        style={{ padding: 40, color: "var(--seene-text)", background: "var(--seene-bg)" }}
       >
         Loading your scenes…
       </div>

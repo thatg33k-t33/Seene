@@ -485,12 +485,12 @@ export function SceneLibrary({
       {catalog.scenes.length === 0 ? (
         <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center">
           <div className="max-w-md space-y-4">
-            <h1 className="text-3xl font-medium tracking-tight text-white">Your scenes will show up here.</h1>
+              <h1 className="text-3xl font-medium tracking-tight text-[var(--seene-text)]">Your scenes will show up here.</h1>
             <p className="text-sm text-[var(--seene-text-muted)]">Create your first cinematic scene to showcase your React components.</p>
             <button
               type="button"
               onClick={openCreateDialog}
-              className="mt-4 appearance-none border border-white/20 rounded-full px-6 py-3 bg-white text-[#111] text-xs font-medium inline-flex items-center gap-2 cursor-pointer hover:bg-neutral-200 transition-colors pointer-events-auto"
+                className="mt-4 appearance-none border border-[var(--seene-border-text)] rounded-full px-6 py-3 bg-[var(--seene-surface)] text-[var(--seene-text)] text-xs font-medium inline-flex items-center gap-2 cursor-pointer hover:bg-[var(--seene-surface-2)] transition-colors pointer-events-auto"
             >
               + Create scene
             </button>
@@ -647,15 +647,15 @@ export function SceneLibrary({
           <div className="w-full max-w-md rounded-2xl border border-[var(--seene-border-text)] bg-[var(--seene-surface-2)] p-6 text-[var(--seene-text)] shadow-2xl space-y-5">
             <div className="flex items-center justify-between border-b border-[var(--seene-border-text)] pb-4">
               <div>
-                <h2 className="text-lg font-semibold text-white">Create new scene</h2>
+                  <h2 className="text-lg font-semibold text-[var(--seene-text)]">Create new scene</h2>
                 <p className="text-xs text-[var(--seene-text-muted)] mt-1">Name your scene. Seene will generate the recipe and component files in your project.</p>
               </div>
-              <button
-                type="button"
-                onClick={() => { setIsCreating(false); setCreateError(""); }}
-                className="text-[var(--seene-text-muted)] hover:text-white text-sm p-1 cursor-pointer"
-                aria-label="Close"
-              >
+                <button
+                  type="button"
+                  onClick={() => { setIsCreating(false); setCreateError(""); }}
+                  className="text-[var(--seene-text-muted)] hover:text-[var(--seene-text)] text-sm p-1 cursor-pointer"
+                  aria-label="Close"
+                >
                 ✕
               </button>
             </div>
@@ -671,9 +671,9 @@ export function SceneLibrary({
                   required
                   autoFocus
                   placeholder="e.g. Dashboard Showcase"
-                  value={createTitle}
-                  onChange={(e) => setCreateTitle(e.target.value)}
-                  className="w-full rounded-lg border border-[var(--seene-border-text)] bg-[var(--seene-surface-2)] px-4 py-2.5 text-sm text-[var(--seene-text)] placeholder-[#55555d] focus:border-white focus:outline-none"
+                   value={createTitle}
+                   onChange={(e) => setCreateTitle(e.target.value)}
+                   className="w-full rounded-lg border border-[var(--seene-border-text)] bg-[var(--seene-surface-2)] px-4 py-2.5 text-sm text-[var(--seene-text)] placeholder-[var(--seene-text-muted)] focus:border-[var(--seene-accent)] focus:outline-none"
                 />
               </div>
 
@@ -685,9 +685,9 @@ export function SceneLibrary({
                   id="seene-create-desc"
                   type="text"
                   placeholder="e.g. A cinematic overview of the analytics panel"
-                  value={createDescription}
-                  onChange={(e) => setCreateDescription(e.target.value)}
-                  className="w-full rounded-lg border border-[var(--seene-border-text)] bg-[var(--seene-surface-2)] px-4 py-2.5 text-sm text-[var(--seene-text)] placeholder-[#55555d] focus:border-white focus:outline-none"
+                   value={createDescription}
+                   onChange={(e) => setCreateDescription(e.target.value)}
+                   className="w-full rounded-lg border border-[var(--seene-border-text)] bg-[var(--seene-surface-2)] px-4 py-2.5 text-sm text-[var(--seene-text)] placeholder-[var(--seene-text-muted)] focus:border-[var(--seene-accent)] focus:outline-none"
                 />
               </div>
 
@@ -701,14 +701,14 @@ export function SceneLibrary({
                 <button
                   type="button"
                   onClick={() => { setIsCreating(false); setCreateError(""); }}
-                  className="rounded-lg border border-[var(--seene-border-text)] px-4 py-2 text-xs font-medium text-[var(--seene-text-muted)] hover:border-[#55555d] hover:text-white transition-colors cursor-pointer"
+                   className="rounded-lg border border-[var(--seene-border-text)] px-4 py-2 text-xs font-medium text-[var(--seene-text-muted)] hover:border-[var(--seene-accent)] hover:text-white transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={createSubmitting || !createTitle.trim()}
-                  className="rounded-lg bg-white px-5 py-2 text-xs font-medium text-[#111114] hover:bg-neutral-200 disabled:opacity-50 transition-colors cursor-pointer"
+                   className="rounded-lg bg-[var(--seene-accent)] px-5 py-2 text-xs font-medium text-white hover:bg-[var(--seene-accent-hover)] disabled:opacity-50 transition-colors cursor-pointer"
                 >
                   {createSubmitting ? "Creating..." : "Create scene"}
                 </button>

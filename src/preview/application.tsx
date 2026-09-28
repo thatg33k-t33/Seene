@@ -118,7 +118,7 @@ export function ApplicationPreview({ route, title = "Application", onIssue, clas
           setStatus("unavailable");
           report({ message: `The application document at ${source} could not be loaded.` });
         }}
-        style={{ width: "100%", height: "100%", border: 0, display: "block", background: "#fff" }}
+        style={{ width: "100%", height: "100%", border: 0, display: "block", background: "var(--seene-bg)" }}
       />
     </div>
   );
