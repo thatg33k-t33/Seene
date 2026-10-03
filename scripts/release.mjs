@@ -1,17 +1,12 @@
 import assert from 'node:assert/strict';
-import {readFile, mkdir, appendFile} from 'node:fs/promises';
-import {spawnSync} from 'node:child_process';
-import {fileURLToPath, pathToFileURL} from 'node:url';
+import { readFile, mkdir, appendFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
 
-// SOURCE OF TRUTH: public-distribution, package identity and release artifact.
-// WHAT: decide whether a version needs publication, then validate its exact artifact.
-// WHY: skip unchanged versions before installing/building; never leak unintended files.
-// Tests run locally; GitHub only builds/publishes new versions from main.
-// WHERE: package scripts and .github/workflows/publish.yml; runtime policy stays in RESOURCES.
-export function validateIdentity(manifest, {repository, tag, publishing = false} = {}) {
+export function validateIdentity(manifest, { repository, tag, publishing = false } = {}) {
   assert.match(manifest.name, /^@[a-z0-9-]+\/[a-z0-9-]+$/);
-  assert.match(manifest.version, /^\d+\.\d+\.\d+$/,'Release requires a stable numeric version');
+  assert.match(manifest.version, /^\d+\.\d+\.\d+$/, 'Release requires a stable numeric version');
   assert.notEqual(manifest.private, true);
   assert.equal(manifest.license, 'MIT');
   assert.equal(manifest.publishConfig?.access, 'public');
@@ -36,7 +31,7 @@ export function validateRelease(manifest, files, options = {}) {
     assert.ok(/^(package\.json|README\.md|LICENSE|dist\/(library|cli)\/.+\.(js|map|ts|css))$/.test(name),
       'Unexpected packed file: ' + name);
   }
-  const required = ['package.json','README.md','LICENSE',manifest.bin.seene.slice(2)];
+  const required = ['package.json', 'README.md', 'LICENSE', manifest.bin.seene.slice(2)];
   for (const entry of Object.values(manifest.exports)) {
     // Plain string exports such as ./style.css have no types/import condition pair.
     if (typeof entry === 'string') { required.push(entry.slice(2)); continue; }
@@ -49,11 +44,11 @@ export function validateRelease(manifest, files, options = {}) {
 }
 // Registry responses are untrusted; only a real 404 means a new package.
 // Other failures stop publication rather than silently treating a version as absent.
-export async function publicationStatus(manifest, {fetchRegistry = fetch, repository} = {}) {
-  validateIdentity(manifest, {publishing:true, repository});
+export async function publicationStatus(manifest, { fetchRegistry = fetch, repository } = {}) {
+  validateIdentity(manifest, { publishing: true, repository });
   const response = await fetchRegistry('https://registry.npmjs.org/' + manifest.name.replace('/', '%2f'),
-    {headers:{accept:'application/json'}, signal:AbortSignal.timeout(15000)});
-  if (response.status === 404) return {publish:true, reason:'New public package'};
+    { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(15000) });
+  if (response.status === 404) return { publish: true, reason: 'New public package' };
   assert.ok(response.ok, 'Registry lookup failed (' + response.status + ')');
   const metadata = await response.json();
   assert.equal(metadata?.name, manifest.name, 'Registry package identity mismatch');
@@ -61,23 +56,23 @@ export async function publicationStatus(manifest, {fetchRegistry = fetch, reposi
     'Registry response is missing versions');
   if (Object.hasOwn(metadata.versions, manifest.version)) {
     assert.equal(metadata.versions[manifest.version]?.version, manifest.version, 'Registry version mismatch');
-    return {publish:false, reason:'Version ' + manifest.version + ' is already published'};
+    return { publish: false, reason: 'Version ' + manifest.version + ' is already published' };
   }
   const latest = metadata['dist-tags']?.latest;
   if (latest !== undefined) {
     assert.match(latest, /^\d+\.\d+\.\d+$/, 'Cannot compare registry latest version');
     const previous = latest.split('.').map(BigInt);
     const next = manifest.version.split('.').map(BigInt);
-    const different = next.findIndex((part,index)=>part !== previous[index]);
+    const different = next.findIndex((part, index) => part !== previous[index]);
     assert.ok(different >= 0 && next[different] > previous[different],
       'New release must be newer than registry latest ' + latest);
   }
-  return {publish:true, reason:'New version ' + manifest.version};
+  return { publish: true, reason: 'New version ' + manifest.version };
 }
 const root = fileURLToPath(new URL('../', import.meta.url));
 export function run(command, args, options = {}) {
   const result = spawnSync(command === 'npm' && process.platform === 'win32' ? 'npm.cmd' : command, args,
-    {cwd: root, encoding:'utf8', stdio:'inherit', ...options});
+    { cwd: root, encoding: 'utf8', stdio: 'inherit', ...options });
   if (result.error) throw result.error;
   if (result.status !== 0) throw Error(command + ' failed (' + result.status + ')');
   return result.stdout;
@@ -101,46 +96,58 @@ async function assertLocked(manifest) {
   assert.match(pnpmLock, /^lockfileVersion:/m, 'pnpm-lock.yaml is not a readable pnpm lockfile.');
 }
 async function readManifest() {
-  const manifest = JSON.parse(await readFile(path.join(root,'package.json'),'utf8'));
+  const manifest = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
   await assertLocked(manifest);
   return manifest;
 }
-export async function inspectArtifact({publishing = false} = {}) {
+export async function inspectArtifact({ publishing = false } = {}) {
   const manifest = await readManifest();
-  const directory = path.join(root,'.release');
-  await mkdir(directory,{recursive:true});
+  const directory = path.join(root, '.release');
+  await mkdir(directory, { recursive: true });
   // The caller builds first. npm must inspect that exact output without rebuilding.
   // npm >=10 reports `npm pack --json` as an object keyed by package name; older npm used an array.
-  const packedResult = JSON.parse(run('npm',['pack','--json','--ignore-scripts','--pack-destination',directory],{stdio:['ignore','pipe','inherit']}));
+  const packedResult = JSON.parse(run('npm', ['pack', '--json', '--ignore-scripts', '--pack-destination', directory], { stdio: ['ignore', 'pipe', 'inherit'] }));
   const packed = (Array.isArray(packedResult) ? packedResult : Object.values(packedResult)).filter(Boolean);
-  assert.equal(packed.length,1);
+  assert.equal(packed.length, 1);
   const artifact = packed[0];
-  assert.equal(artifact.name,manifest.name);assert.equal(artifact.version,manifest.version);
-  validateRelease(manifest,artifact.files,{
-    publishing, repository:process.env.GITHUB_REPOSITORY,
-    tag:process.env.GITHUB_REF_TYPE === 'tag' ? process.env.GITHUB_REF_NAME : undefined
+  assert.equal(artifact.name, manifest.name); assert.equal(artifact.version, manifest.version);
+  validateRelease(manifest, artifact.files, {
+    publishing, repository: process.env.GITHUB_REPOSITORY,
+    tag: process.env.GITHUB_REF_TYPE === 'tag' ? process.env.GITHUB_REF_NAME : undefined
   });
-  const cli = await readFile(path.join(root,manifest.bin.seene),'utf8');
+  const cli = await readFile(path.join(root, manifest.bin.seene), 'utf8');
   assert.ok(cli.startsWith('#!/usr/bin/env node'), 'CLI must have executable Node shebang');
-  assert.ok(artifact.files.find(file=>file.path===manifest.bin.seene.slice(2)).mode & 0o111, 'CLI must be executable');
-  console.log('Checked artifact: '+artifact.filename+' ('+artifact.integrity+')');
+  assert.ok(artifact.files.find(file => file.path === manifest.bin.seene.slice(2)).mode & 0o111, 'CLI must be executable');
+  console.log('Checked artifact: ' + artifact.filename + ' (' + artifact.integrity + ')');
   return path.join(directory, artifact.filename);
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   try {
     const action = process.argv[2] ?? 'check';
-    assert.ok(['check','publish-check','publish','status'].includes(action), 'Unknown release action');
+    assert.ok(['check', 'publish-check', 'publish', 'status'].includes(action), 'Unknown release action');
     if (action === 'status') {
-      const status = await publicationStatus(await readManifest(), {repository:process.env.GITHUB_REPOSITORY});
+      const status = await publicationStatus(await readManifest(), { repository: process.env.GITHUB_REPOSITORY });
       console.log(status.reason);
       if (process.env.GITHUB_OUTPUT) await appendFile(process.env.GITHUB_OUTPUT, 'publish=' + status.publish + '\n');
     } else {
-      const artifact = await inspectArtifact({publishing:action !== 'check'});
+      const artifact = await inspectArtifact({ publishing: action !== 'check' });
       if (action === 'publish') {
-        assert.equal(run('git',['status','--porcelain'],{stdio:['ignore','pipe','inherit']}).trim(),'',
-          'Commit the verified release candidate before publishing');
-        run('npm',['publish',artifact,'--ignore-scripts','--access','public','--registry','https://registry.npmjs.org/']);
+        assert.equal(
+          run('git', ['status', '--porcelain'], {
+            stdio: ['ignore', 'pipe', 'inherit'],
+          }).trim(),
+          '',
+          'Commit the verified release candidate before publishing',
+        );
+
+        run('npm', [
+          'publish',
+          artifact,
+          '--ignore-scripts',
+          '--access',
+          'public',
+        ]);
       }
     }
-  } catch (error) {console.error(error.message); process.exitCode = 1;}
+  } catch (error) { console.error(error.message); process.exitCode = 1; }
 }

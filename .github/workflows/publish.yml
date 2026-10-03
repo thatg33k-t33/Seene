@@ -24,6 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: npm
+
     permissions:
       contents: read
       id-token: write
@@ -41,6 +42,13 @@ jobs:
       - name: Skip versions already on npm
         id: release
         run: node scripts/release.mjs status
+
+      - name: Check npm
+        if: steps.release.outputs.publish == 'true'
+        run: |
+          node --version
+          npm --version
+          npm config get registry
 
       - name: Install pnpm
         if: steps.release.outputs.publish == 'true'
