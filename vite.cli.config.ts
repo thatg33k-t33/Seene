@@ -3,6 +3,8 @@ import { defineConfig } from "vite";
 import manifest from "./package.json";
 export default defineConfig({
   define: { __SEENE_VERSION__: JSON.stringify(manifest.version) },
+  // The CLI never serves the platform site's public/ imagery.
+  publicDir: false,
   build: {
     target: "node22",
     outDir: "dist/cli",

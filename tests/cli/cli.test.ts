@@ -10,7 +10,7 @@ describe("CLI adapter", () => {
   it("has side-effect-free help", async () => {
     const execute = vi.fn();
     const help = (await runCli(["--help"], context, execute)).stdout;
-    for (const text of ["pnpm exec seene init", SEENE_BRAND.title, SEENE_BRAND.url, "--package is optional", "SEENE.md"])
+    for (const text of ["npx @thatg33k/seene init", SEENE_BRAND.title, SEENE_BRAND.url, "--package accepts a local .tgz", "SEENE.md"])
       expect(help).toContain(text);
     expect(execute).not.toHaveBeenCalled();
   });

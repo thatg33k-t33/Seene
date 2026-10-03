@@ -2,6 +2,28 @@
 
 ## 0.1.3
 
+### Fix: publishing is unblocked
+
+- `scripts/release.mjs` no longer requires `package-lock.json`. It accepts the committed `pnpm-lock.yaml` (or an npm lockfile) so releases install reproducibly. This was the hard failure behind every red `Publish npm package` run.
+- `npm pack --json` output is normalized across npm versions; npm >= 10 returns an object keyed by package name, which previously made the artifact count `undefined`.
+- The packed-file allowlist accepts `.css`, so the published `./style.css` export no longer fails validation. Plain string exports are also handled correctly instead of throwing on a missing `types` condition.
+- `package.json` `repository`/`homepage`/`bugs` now match the real GitHub remote (`thatg33k-t33/Seene`), so CI's repository assertion passes.
+- The publish workflow installs with `pnpm install --frozen-lockfile` (the lockfile actually committed) instead of `npm ci`, which demanded a `package-lock.json` that does not exist.
+
+### Fix: package size
+
+- The library and CLI builds set `publicDir: false`, so the platform site's imagery is no longer copied into the npm package. The tarball drops from ~4.07 MB to ~220 KB (-94.6%); those PNGs were 82.6% of the package and are unreachable from package exports.
+
+### Install: one command
+
+- `seene init` now installs `@thatg33k/seene` from the registry at the exact running CLI version when it is not already present, so `npx @thatg33k/seene init` is a true single step. `--package <tarball>` still takes precedence for local builds and offline use.
+- A failed auto-install now reports `install-failed` with the real cause and the exact command to retry, instead of collapsing into a generic project error.
+- Generated `SEENE.md` instructions and CLI messages use the consumer's own package manager (`npx`, `pnpm exec`, `yarn` or `bunx`) rather than assuming pnpm.
+
+### Fix
+
+- `ProjectsView`: the "Register project" button referenced a non-existent `SenteButton` component, breaking the build once uncommented.
+
 ### Preview / Runtime
 
 - **Fix**: Bridge heartbeat keep-alive now sends periodic `SEENE_STUDIO_PING` every 10s and retries `SEENE_CLIENT_HELLO` every 2s, preventing "Not connected" after 15s of inactivity.

@@ -108,13 +108,13 @@
     "name": "THATG33K",
     "url": "https://github.com/thatg33k"
   },
-  "homepage": "https://github.com/thatg33k-org/seene#readme",
+  "homepage": "https://github.com/thatg33k-t33/Seene#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/thatg33k-org/seene.git"
+    "url": "git+https://github.com/thatg33k-t33/Seene.git"
   },
   "bugs": {
-    "url": "https://github.com/thatg33k-org/seene/issues"
+    "url": "https://github.com/thatg33k-t33/Seene/issues"
   },
   "sideEffects": [
     "./dist/cli/seene.js",

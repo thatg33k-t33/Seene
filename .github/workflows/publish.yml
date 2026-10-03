@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - package.json
+      - pnpm-lock.yaml
       - package-lock.json
       - scripts/release.mjs
       - .github/workflows/publish.yml
@@ -30,12 +31,17 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
+      # `status` needs no installed dependencies, so it runs first and gates everything after it.
       - name: Skip versions already on npm
         id: release
         run: node scripts/release.mjs status
+      # The committed lockfile is pnpm-lock.yaml; npm ci would demand a package-lock.json.
+      - name: Install pnpm
+        if: steps.release.outputs.publish == 'true'
+        run: npm install -g pnpm@11.18.0
       - name: Install build dependencies
         if: steps.release.outputs.publish == 'true'
-        run: npm ci --ignore-scripts --no-audit --no-fund
+        run: pnpm install --frozen-lockfile --ignore-scripts
       - name: Build the npm library and CLI
         if: steps.release.outputs.publish == 'true'
         run: npm run build:package

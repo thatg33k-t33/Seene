@@ -96,8 +96,8 @@ export function ProjectsView() {
           </div>
           <div id="seene-preview" className="seene-hero-rise mx-auto mt-10 max-w-4xl overflow-clip rounded-md shadow-xl" style={{ boxShadow: "0 24px 64px rgb(100 116 139 / 0.2)", border: "1px solid var(--seene-border)", aspectRatio: "16 / 11" }}>
             <div className="flex items-center gap-1.5 border-b border-[var(--seene-border)] bg-[var(--seene-surface-2)] px-4 py-2.5" aria-hidden="true">
-              <span style={{ width: 10, height: 10, borderRadius: 999, background: "var(--seene-border-text)" }} />
-              <span style={{ width: 10, height: 10, borderRadius: 999, background: "var(--seene-border-text)" }} />
+              <span style={{ width: 10, height: 10, borderRadius: 999, background: "#e5e7eb" }} />
+              <span style={{ width: 10, height: 10, borderRadius: 999, background: "#e5e7eb" }} />
               <span style={{ width: 10, height: 10, borderRadius: 999, background: "var(--seene-accent)" }} />
             </div>
             <div className="grid gap-3 bg-[var(--seene-surface)] p-5 text-left sm:grid-cols-[180px_minmax(0,1fr)]">
@@ -154,9 +154,9 @@ export function ProjectsView() {
             placeholder="/Users/you/projects/my-app"
             onChange={event => setTarget(event.target.value)}
           />
-           {/* <SenteButton variant="primary" size="cta" kbd={<Kbd onPrimary>R</Kbd>} loading={busy} disabled={!target.trim()} className="shrink-0 gap-1.5" type="submit" aria-keyshortcuts="r">
+           <SeeneButton variant="primary" size="cta" kbd={<Kbd onPrimary>R</Kbd>} loading={busy} disabled={!target.trim()} className="shrink-0 gap-1.5" type="submit" aria-keyshortcuts="r">
               <PlusIcon /> Register project
-            </SenteButton> */}
+            </SeeneButton>
         </form>
         {error && <div className="mt-3"><Notice>{error}</Notice></div>}
       </Panel>
@@ -231,8 +231,8 @@ export function ProjectsView() {
       </FrameSection>
       <FrameSection label="Final call to action" edge="both" texture rails={[{ kind: "dashed", flex: 3 }, { kind: "solid", flex: 3 }, { kind: "dashed", flex: 3 }]}>
         <div className="mx-auto max-w-xl py-14 text-center" style={{ background: "linear-gradient(to bottom, rgb(219 234 254 / 0.1), rgb(250 247 239 / 0.4), transparent)" }}>
-          <div className="mx-auto flex items-center justify-center" style={{ width: 160, height: 160, borderRadius: 40, border: "8px solid rgb(255 255 255 / 0.5)", boxShadow: "0 24px 64px rgb(15 23 42 / 0.18)", background: "radial-gradient(circle at 30% 20%, var(--seene-border-text) 0.08), var(--seene-offgray-50) 0.02, var(--seene-surface-2) 0.08)" }}>
-            <span style={{ width: 96, height: 96, borderRadius: 32, background: "var(--seene-bg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div className="mx-auto flex items-center justify-center" style={{ width: 160, height: 160, borderRadius: 40, border: "8px solid rgb(255 255 255 / 0.5)", boxShadow: "0 24px 64px rgb(15 23 42 / 0.18)", background: "radial-gradient(circle at 30% 20%, rgb(100 116 139 / 0.08), rgb(148 163 184 / 0.02), rgb(255 255 255 / 0.08))" }}>
+            <span style={{ width: 96, height: 96, borderRadius: 32, background: "#05070d", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <img src="/logo-seene.png" alt="Seene" width={80} height={80} style={{ width: 80, height: "auto" }} />
             </span>
           </div>

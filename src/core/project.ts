@@ -26,7 +26,7 @@ export const ProjectResultSchema = z.discriminatedUnion("success", [
     project:ProjectStateSchema.optional(),url:z.string().optional(),changed:z.boolean().optional(),
     integration:z.strictObject({kind:z.string(),component:z.string(),route:z.string().optional(),instructions:z.string()}).optional(),
     handoff:z.strictObject({
-      path:z.literal("SEENE.md"), guideCommand: z.enum(["pnpm exec seene guide --json", "pnpm exec seene guide --json"]),
+      path:z.literal("SEENE.md"), guideCommand: z.string().min(1),
       guideVersion:z.number().int().positive(), prompt:z.string().min(1),
     }).optional(),
   })}),

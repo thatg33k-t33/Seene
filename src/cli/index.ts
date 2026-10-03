@@ -11,7 +11,7 @@ type Execute = typeof executeProjectCommand;
 export type CliResult = { code: number; stdout: string; stderr: string };
 const usage = `${SEENE_BRAND.title} — cinematic 3D motion from your real application UI.
 ${SEENE_BRAND.url}
-Start with pnpm exec seene guide to learn spatial composition, camera, focus and motion.
+Run seene guide to learn spatial composition, camera, focus and motion.
 
 seene --version
 seene guide [--json]
@@ -24,8 +24,11 @@ seene load [--scene ID] [--project DIR] [--json]
 seene validate [--project DIR]
 seene export --url URL --output FILE [--fps 30|60|120] [--width N --height N] [--project DIR] [--json]
 
-After installing @thatg33k/seene locally, run pnpm exec seene init in your React DOM app (React 18.2+ or 19). Next.js and Vite have automatic connections; other hosts get a portable React wrapper.
---package is optional when Seene is already installed; it accepts a local .tgz for setup.
+One-step setup in a React DOM app (React 18.2+ or 19): npx @thatg33k/seene init
+init installs @thatg33k/seene with your package manager, connects the app and writes SEENE.md.
+Next.js and Vite have automatic connections; other hosts get a portable React wrapper.
+Afterwards run it as "seene", "npx seene" or "pnpm exec seene" depending on your package manager.
+--package accepts a local .tgz to install a local build instead; --adapter react forces the portable connection.
 init preserves the existing root/providers and creates SEENE.md for documentation.
 Add --url to initialize and open in one command.
 open reuses your running dev server (APP_PORT / PORT / 5173); it never starts another server.
@@ -81,8 +84,8 @@ export async function runCli(argv: string[], environment: Environment, execute: 
   if (flags.has("--package") && command !== "init") return fail("--package is only valid for init.");
   if (flags.has("--scene") && !["load", "open", "snapshot"].includes(command)) return fail("--scene is only valid for load, open or snapshot.");
   if (["load", "validate", "scenes", "sync"].includes(command) && (flags.has("--url") || flags.has("--no-open"))) return fail("Preview options require init or open.");
-  if (command === "init" && flags.has("--no-open") && !flags.has("--url")) return fail("init --no-open requires --url. To initialize without opening a browser, run pnpm exec seene init.");
-  const context = { root: flags.get("--project") as string ?? environment.root };
+  if (command === "init" && flags.has("--no-open") && !flags.has("--url")) return fail("init --no-open requires --url. To initialize without opening a browser, run seene init.");
+  const context = { root: flags.get("--project") as string ?? environment.root, version: environment.terminal?.version };
   const json = flags.has("--json");
   if(command==="snapshot"){
     if(!flags.has("--scene")||!flags.has("--url"))return fail("snapshot requires --scene and --url.");

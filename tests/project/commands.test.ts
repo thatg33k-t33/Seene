@@ -48,8 +48,8 @@ async function installFixture(root: string) {
   await put(root, "node_modules/@thatg33k/seene/package.json", JSON.stringify({ name: "@thatg33k/seene", version: "0.1.0", exports: { "./preview": { import: "./preview.js" } } }));
   await put(root, "node_modules/@thatg33k/seene/preview.js", "export const ProjectPreview = () => null;");
 }
-function run(root: string, operation: unknown = "init-project", input: unknown = {}) {
-  return executeProjectCommand(operation, input, { root });
+function run(root: string, operation: unknown = "init-project", input: unknown = {}, version?: string) {
+  return executeProjectCommand(operation, input, { root, version });
 }
 function success(result: ProjectResult) {
   expect(ProjectResultSchema.safeParse(result).success).toBe(true);
@@ -306,13 +306,43 @@ describe("project initialization and preview integration", () => {
       expect(second.project?.projectId).toBe(first.project?.projectId);
     });
   });
-  it("requires a local Seene package before setup and does not mutate the host app", async () => {
+  it("refuses setup without a package source or running CLI version, and does not mutate the host app", async () => {
     const root = await fixture({ installed: false });
     const result = await run(root);
     failure(result, "package-unavailable");
-    expect(JSON.stringify(result)).toContain("Link the local @thatg33k/seene workspace package");
+    expect(JSON.stringify(result)).toContain("Install @thatg33k/seene in this project");
     expect(await readFile(path.join(root, "src/main.tsx"), "utf8")).toBe(original);
     expect(await readdir(root)).not.toContain(".seene");
+  });
+  it("installs the exact published version from the registry when run through npx", async () => {
+    const root = await fixture({ installed: false });
+    const before = await readFile(path.join(root, "package.json"), "utf8");
+    const install = vi.spyOn(services, "installPackage").mockResolvedValue();
+    try {
+      failure(await run(root, "init-project", {}, "9.9.9"), "missing-installation");
+      expect(install).toHaveBeenCalledWith(root, "@thatg33k/seene@9.9.9", "npm");
+    } finally { install.mockRestore(); }
+    // The journal makes the attempt resumable; the host itself must be untouched.
+    expect(await readFile(path.join(root, ".seene/pending.json"), "utf8")).toContain("original");
+    expect(await readFile(path.join(root, "package.json"), "utf8")).toBe(before);
+    expect(await readFile(path.join(root, "src/main.tsx"), "utf8")).toBe(original);
+  });
+  it("surfaces a failed auto-install with its command and manual remedy", async () => {
+    const root = await fixture({ installed: false });
+    await expect(services.installPackage(root, "./does-not-exist.tgz", "npm"))
+      .rejects.toMatchObject({ code: "install-failed" });
+    await expect(services.installPackage(root, "./does-not-exist.tgz", "npm"))
+      .rejects.toThrow(/npm install \.\/does-not-exist\.tgz.*re-run seene init/s);
+  });
+  it("uses the consumer's own package manager in generated instructions", async () => {
+    for (const [lock, expected] of [[undefined, "npx seene guide --json"], ["pnpm-lock.yaml", "pnpm exec seene guide --json"], ["yarn.lock", "yarn seene guide --json"], ["bun.lock", "bunx seene guide --json"]] as const) {
+      const root = await fixture();
+      await rm(path.join(root, "package-lock.json"));
+      if (lock) await put(root, lock, lock === "pnpm-lock.yaml" ? "lockfileVersion: '9.0'\n" : "");
+      const handoff = success(await run(root)).handoff;
+      expect(handoff, lock).toMatchObject({ guideCommand: expected });
+      expect(await readFile(path.join(root, "SEENE.md"), "utf8")).toContain(expected);
+    }
   });
   it("does not trust a user manifest without a real package integration", async () => {
     const root = await fixture({ installed: false });
@@ -486,7 +516,7 @@ describe("installed coding-agent handoff", () => {
       await put(root, name, "user instructions\n");
     const install = vi.spyOn(services, "installPackage");
     const first = success(await run(root));
-    expect(first.handoff).toMatchObject({ path: "SEENE.md", guideCommand: "pnpm exec seene guide --json", guideVersion: RESOURCES["authoring-guide"]().version });
+    expect(first.handoff).toMatchObject({ path: "SEENE.md", guideCommand: "npx seene guide --json", guideVersion: RESOURCES["authoring-guide"]().version });
     expect(first.handoff!.prompt).toContain("Seene studio");
     const text = await readFile(path.join(root, "SEENE.md"), "utf8");
     for (const pointer of [SEENE_BRAND.title, SEENE_BRAND.url, "@thatg33k/seene/preview", "src/seene/scenes"])

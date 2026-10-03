@@ -2,6 +2,9 @@ import { defineConfig } from "vite";
 import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   plugins: [tailwindcss()],
+  // public/ holds the platform site's own imagery (served at "/" by vite.config.ts).
+  // Copying it here would ship ~4MB of unrelated assets inside the published npm package.
+  publicDir: false,
   build: {
     outDir: "dist/library",
     emptyOutDir: true,

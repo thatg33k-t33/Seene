@@ -33,11 +33,13 @@ export function validateRelease(manifest, files, options = {}) {
   assert.equal(new Set(names).size, names.length, 'Duplicate packed paths');
   for (const name of names) {
     assert.ok(!name.split('/').some(part => part === '..' || part.startsWith('.')), 'Hidden/traversal packed file: ' + name);
-    assert.ok(/^(package\.json|README\.md|LICENSE|dist\/(library|cli)\/.+\.(js|map|ts))$/.test(name),
+    assert.ok(/^(package\.json|README\.md|LICENSE|dist\/(library|cli)\/.+\.(js|map|ts|css))$/.test(name),
       'Unexpected packed file: ' + name);
   }
   const required = ['package.json','README.md','LICENSE',manifest.bin.seene.slice(2)];
   for (const entry of Object.values(manifest.exports)) {
+    // Plain string exports such as ./style.css have no types/import condition pair.
+    if (typeof entry === 'string') { required.push(entry.slice(2)); continue; }
     assert.equal(typeof entry.types, 'string');
     assert.equal(typeof entry.import, 'string');
     required.push(entry.types.slice(2), entry.import.slice(2));
@@ -80,11 +82,27 @@ export function run(command, args, options = {}) {
   if (result.status !== 0) throw Error(command + ' failed (' + result.status + ')');
   return result.stdout;
 }
+async function readLockfile(name) {
+  return readFile(path.join(root, name), 'utf8').catch(() => undefined);
+}
+// A release must be reproducible from a committed lockfile. This repository ships pnpm's,
+// npm's is accepted too so an npm-only checkout releases identically.
+async function assertLocked(manifest) {
+  const npmLock = await readLockfile('package-lock.json');
+  if (npmLock !== undefined) {
+    const lock = JSON.parse(npmLock);
+    assert.equal(lock.name, manifest.name); assert.equal(lock.version, manifest.version);
+    assert.equal(lock.packages[''].name, manifest.name); assert.equal(lock.packages[''].version, manifest.version);
+    return;
+  }
+  const pnpmLock = await readLockfile('pnpm-lock.yaml');
+  assert.ok(pnpmLock !== undefined,
+    'Commit pnpm-lock.yaml or package-lock.json so the release installs reproducibly.');
+  assert.match(pnpmLock, /^lockfileVersion:/m, 'pnpm-lock.yaml is not a readable pnpm lockfile.');
+}
 async function readManifest() {
   const manifest = JSON.parse(await readFile(path.join(root,'package.json'),'utf8'));
-  const lock = JSON.parse(await readFile(path.join(root,'package-lock.json'),'utf8'));
-  assert.equal(lock.name,manifest.name); assert.equal(lock.version,manifest.version);
-  assert.equal(lock.packages[''].name,manifest.name); assert.equal(lock.packages[''].version,manifest.version);
+  await assertLocked(manifest);
   return manifest;
 }
 export async function inspectArtifact({publishing = false} = {}) {
@@ -92,7 +110,9 @@ export async function inspectArtifact({publishing = false} = {}) {
   const directory = path.join(root,'.release');
   await mkdir(directory,{recursive:true});
   // The caller builds first. npm must inspect that exact output without rebuilding.
-  const packed = JSON.parse(run('npm',['pack','--json','--ignore-scripts','--pack-destination',directory],{stdio:['ignore','pipe','inherit']}));
+  // npm >=10 reports `npm pack --json` as an object keyed by package name; older npm used an array.
+  const packedResult = JSON.parse(run('npm',['pack','--json','--ignore-scripts','--pack-destination',directory],{stdio:['ignore','pipe','inherit']}));
+  const packed = (Array.isArray(packedResult) ? packedResult : Object.values(packedResult)).filter(Boolean);
   assert.equal(packed.length,1);
   const artifact = packed[0];
   assert.equal(artifact.name,manifest.name);assert.equal(artifact.version,manifest.version);

@@ -51,7 +51,16 @@ export async function installPackage(root: string, packageSource: string, packag
   const { promisify } = await import("node:util");
   const exec = promisify(execFile);
   const command = packageManager === "npm" ? "install" : "add";
-  await exec(packageManager, [command, packageSource], { cwd: root });
+  // A failed auto-install is the most common first-run failure; surface its real cause
+  // instead of letting it collapse into a generic project error.
+  try {
+    await exec(packageManager, [command, packageSource], { cwd: root });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message.replace(/\s+/g, " ").trim() : "";
+    throw fault("install-failed",
+      `${packageManager} could not install ${packageSource}: ${detail || "the install command failed"}. ` +
+      `Install it manually with \`${packageManager} ${command} ${packageSource}\` and re-run seene init.`);
+  }
 }
 
 export async function scopedPath(root: string, target: string): Promise<string> {
@@ -156,7 +165,7 @@ export async function openBrowser(root: string, url: string): Promise<void> {
 export async function localPackageSource(root: string, source: string): Promise<string> {
   const filename = path.isAbsolute(source) ? source : await scopedPath(root, source.replace(/^\.\//, ""));
   const stat = await lstat(filename).catch(error => {
-    if (error.code === "ENOENT") throw fault("package-unavailable", "Local Seene tarball was not found. Correct --package to an existing .tgz file, or install @thatg33k/seene locally and run pnpm exec seene init.", source);
+    if (error.code === "ENOENT") throw fault("package-unavailable", "Local Seene tarball was not found. Correct --package to an existing .tgz file, or re-run seene init to install the published package instead.", source);
     throw error;
   });
   if (!stat.isFile() || stat.isSymbolicLink()) throw fault("denied-path", "Package source must be a regular local tarball.");
