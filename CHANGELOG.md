@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.4
+
+### Publish metadata
+
+- `homepage` now points at the deployed website, <https://thatg33k-t33.github.io/Seene/>, so
+  npmjs.com shows the real site instead of the repository README.
+- Bumped from `0.1.3` because npm metadata is immutable per version; this release carries the
+  corrected `homepage` and `author` (Yonela Johannes, with THATG33K as contributor).
+
 ## 0.1.3
 
 ### Landing page
