@@ -1,43 +1,50 @@
 @import "tailwindcss";
 
+/* Seene is a dark-first, cinematic tool: dark is the default appearance.
+ * A visitor whose system explicitly prefers light still gets the light palette. */
 :root {
-  --seene-bg: #ffffff;
-  --seene-surface: #ffffff;
-  --seene-surface-2: #f6f7f9;
-  --seene-border: #e4e7ee;
-  --seene-border-text: #c3c9d6;
-  --seene-text: #12151c;
-  --seene-text-muted: #5b6476;
-  --seene-accent: hsl(219 93% 42%);
-  --seene-accent-hover: hsl(219 93% 35%);
-  --seene-accent-edge: hsl(219 93% 30%);
-  --seene-accent-soft: hsl(219 93% 95%);
-  --seene-cream: #faf7ef;
-  --seene-offgray-50: #f6f7f9;
-  --seene-offgray-100: #e9ecf2;
-  --seene-offgray-200: #d7dce6;
-  --seene-nav-bg: rgba(255, 255, 255, 0.9);
+  color-scheme: dark;
+  --seene-bg: hsl(219 92% 2%);
+  --seene-surface: #0d1119;
+  --seene-surface-2: #141a26;
+  --seene-border: #1d2637;
+  --seene-border-text: #2b3a52;
+  --seene-text: #eef1f6;
+  --seene-text-muted: #9aa4b8;
+  --seene-accent: hsl(219 90% 68%);
+  --seene-accent-hover: hsl(219 90% 74%);
+  --seene-accent-edge: hsl(219 90% 52%);
+  --seene-accent-soft: hsl(219 90% 68% / 0.14);
+  --seene-cream: #0d1119;
+  --seene-offgray-50: #141a26;
+  --seene-offgray-100: #1d2637;
+  --seene-offgray-200: #2b3a52;
+  --seene-nav-bg: rgba(4, 7, 13, 0.88);
   --seene-font-ui: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --seene-font-heading: "IBM Plex Serif", Georgia, "Times New Roman", serif;
   --seene-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --seene-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: light) {
   :root {
-    --seene-bg: hsl(219 92% 2%);
-    --seene-surface: #0d1119;
-    --seene-surface-2: #141a26;
-    --seene-border: #1d2637;
-    --seene-border-text: #2b3a52;
-    --seene-text: #eef1f6;
-    --seene-text-muted: #9aa4b8;
-    --seene-accent-soft: rgba(0, 0, 0, 0.4);
-    --seene-cream: #0d1119;
-    --seene-offgray-50: #141a26;
-    --seene-offgray-100: #1d2637;
-    --seene-offgray-200: #2b3a52;
-    --seene-nav-bg: rgba(4, 7, 13, 0.88);
+    color-scheme: light;
+    --seene-bg: #ffffff;
+    --seene-surface: #ffffff;
+    --seene-surface-2: #f6f7f9;
+    --seene-border: #e4e7ee;
+    --seene-border-text: #c3c9d6;
+    --seene-text: #12151c;
+    --seene-text-muted: #5b6476;
+    --seene-accent: hsl(219 93% 42%);
+    --seene-accent-hover: hsl(219 93% 35%);
+    --seene-accent-edge: hsl(219 93% 30%);
+    --seene-accent-soft: hsl(219 93% 95%);
+    --seene-cream: #faf7ef;
+    --seene-offgray-50: #f6f7f9;
+    --seene-offgray-100: #e9ecf2;
+    --seene-offgray-200: #d7dce6;
+    --seene-nav-bg: rgba(255, 255, 255, 0.9);
   }
 }
 
@@ -93,18 +100,15 @@ body {
   height: 1.25rem;
   padding: 0 0.375rem;
   border-radius: 0.125rem;
-  border: 1px solid rgb(107 114 128 / 0.2);
-  background: rgb(249 250 251 / 0.5);
+  border: 1px solid color-mix(in srgb, var(--seene-text-muted) 24%, transparent);
+  background: color-mix(in srgb, var(--seene-text) 6%, transparent);
+  color: var(--seene-text-muted);
   font-family: var(--seene-font-mono);
   font-size: 0.6875rem;
   line-height: 1;
 }
 .seene-kbd-on-primary { border-color: rgb(255 255 255 / 0.2); background: rgb(255 255 255 / 0.1); color: #fff; }
 @media (max-width: 640px) { .seene-kbd { display: none; } }
-@media (prefers-color-scheme: dark) {
-  .seene-kbd { background: rgb(255 255 255 / 0.06); color: var(--seene-text-muted); }
-  .seene-btn-primary { box-shadow: var(--seene-accent-edge) 0 -2px 0 0 inset, rgba(0, 0, 0, 0.4) 0 1px 3px 0; }
-}
 .seene-spinner {
   width: 0.875rem; height: 0.875rem; border-radius: 999px;
   border: 2px solid rgb(255 255 255 / 0.35); border-top-color: #fff;
@@ -138,12 +142,12 @@ body {
 }
 .seene-frame-content { width: 100%; max-width: 72rem; margin: 0 auto; padding: 0 1.5rem; min-width: 0; }
 .seene-gutter-texture {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Cpath d='M10 0H0v10' fill='none' stroke='%230544c4' stroke-opacity='0.15' stroke-width='1'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Cpath d='M10 0H0v10' fill='none' stroke='%2393c5fd' stroke-opacity='0.05' stroke-width='1'/%3E%3C/svg%3E");
   background-size: 10px 10px;
 }
-@media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: light) {
   .seene-gutter-texture {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Cpath d='M10 0H0v10' fill='none' stroke='%2393c5fd' stroke-opacity='0.05' stroke-width='1'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10'%3E%3Cpath d='M10 0H0v10' fill='none' stroke='%230544c4' stroke-opacity='0.15' stroke-width='1'/%3E%3C/svg%3E");
   }
 }
 .seene-h2 {

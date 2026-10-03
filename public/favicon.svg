@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Seene">
+  <rect width="64" height="64" rx="14" fill="#05070d"/>
+  <g stroke="#5b8cff" stroke-width="4" stroke-linecap="round" fill="none">
+    <path d="M18 44V20"/>
+    <path d="M30 44V28"/>
+    <path d="M42 44V24"/>
+    <path d="M52 44V32"/>
+  </g>
+  <circle cx="18" cy="14" r="3.5" fill="#7aa2ff"/>
+</svg>

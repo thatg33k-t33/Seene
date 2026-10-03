@@ -1,8 +1,26 @@
-# Seene by THATG33K
+# Seene
 
-Cinematic scene studio for your **real React UI**. Take your real React application and create cinematic, spatial presentations of it. Seene provides the renderer, camera system, perspective, depth-of-field effects, timeline playback and MP4 export. Your app keeps its components, providers and styles.
+[![npm](https://img.shields.io/npm/v/@thatg33k/seene)](https://www.npmjs.com/package/@thatg33k/seene)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Pages](https://img.shields.io/badge/site-thatg33k--t33.github.io%2FSeene-5b8cff)](https://thatg33k-t33.github.io/Seene/)
 
-Open source under the [MIT license](LICENSE). Runs locally. No account or cloud subscription is needed.
+**Seene** is a cinematic scene studio for your **real React UI**. Take your real React application
+and create cinematic, spatial presentations of it. Seene provides the renderer, camera system,
+perspective, depth-of-field effects, timeline playback and MP4 export. Your app keeps its
+components, providers and styles.
+
+Open source under the [MIT license](LICENSE). Runs locally. **No account, no cloud service, no
+subscription.**
+
+- **Homepage:** <https://thatg33k-t33.github.io/Seene/>
+- **Package:** [`@thatg33k/seene`](https://www.npmjs.com/package/@thatg33k/seene)
+- **Repository:** <https://github.com/thatg33k-t33/Seene>
+
+## Project credits
+
+Seene is built and maintained by [**Yonela Johannes**](https://github.com/Yonela-Johannes) under
+[**THATG33K**](https://github.com/thatg33k-t33). Yonela is the sole author and repository
+maintainer; THATG33K is the organization that owns the project and the `@thatg33k` npm scope.
 
 ## Install (one command)
 
@@ -63,3 +81,15 @@ pnpm install
 pnpm build
 pnpm dev
 ```
+
+### Landing page
+
+The public site is a separate static build and deploys to GitHub Pages independently of the npm
+publish workflow:
+
+```sh
+pnpm build:pages   # outputs dist-pages/
+```
+
+`vite.pages.config.ts` sets the `/Seene/` base path required by GitHub Pages project sites. The local
+studio (`pnpm dev`, `vite.config.ts`) keeps its platform server and is not part of the static build.

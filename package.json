@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "build": "npm run lint:architecture && tsc --noEmit && vite build && npm run build:package",
+    "build:pages": "vite build --config vite.pages.config.ts --mode pages",
     "typecheck": "tsc --noEmit",
     "test:core": "vitest run tests/core",
     "test:react": "vitest run tests/react",
@@ -105,10 +106,16 @@
     "registry": "https://registry.npmjs.org/"
   },
   "author": {
-    "name": "THATG33K",
-    "url": "https://github.com/thatg33k"
+    "name": "Yonela Johannes",
+    "url": "https://github.com/Yonela-Johannes"
   },
-  "homepage": "https://github.com/thatg33k-t33/Seene#readme",
+  "contributors": [
+    {
+      "name": "THATG33K",
+      "url": "https://github.com/thatg33k-t33"
+    }
+  ],
+  "homepage": "https://thatg33k-t33.github.io/Seene/#readme",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/thatg33k-t33/Seene.git"

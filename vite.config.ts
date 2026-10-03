@@ -6,6 +6,7 @@ import { seenePlatformPlugin } from "./src/vite/platform-plugin";
 
 // The Seene platform's own server. Consumer applications keep their own Vite config and add
 // seeneCreateScenePlugin() from @thatg33k/seene/vite when they want scene creation from their studio.
+// The public landing page is built separately by vite.pages.config.ts.
 export default defineConfig({
   resolve: {
     alias: {

@@ -36,17 +36,17 @@ export const platformApi = {
   removeScene: (target: string, id: string) => request<CatalogResponse>(`${PLATFORM_API_PREFIX}/projects/scenes`, { ...body({ path: target, id }), method: "DELETE" }),
 };
 
+/** Hash routes for the public site. The default route is the static landing page,
+ * which needs no platform server and therefore works on GitHub Pages. */
 export type Route =
+  | { view: "home" }
   | { view: "projects" }
   | { view: "studio"; project: string }
   | { view: "settings"; project: string }
-  | { view: "present"; project: string; scene: string }
-  | { view: "login" }
-  | { view: "signup" };
+  | { view: "present"; project: string; scene: string };
 
+export const HOME_ROUTE = "#/";
 export const PROJECTS_ROUTE = "#/projects";
-export const LOGIN_ROUTE = "#/login";
-export const SIGNUP_ROUTE = "#/signup";
 export function studioHref(project: string): string { return `#/projects/${encodeURIComponent(project)}`; }
 export function settingsHref(project: string): string { return `${studioHref(project)}/settings`; }
 export function presentHref(project: string, scene: string): string { return `#/present/${encodeURIComponent(project)}/${encodeURIComponent(scene)}`; }
@@ -54,15 +54,18 @@ export function presentHref(project: string, scene: string): string { return `#/
 export function readRoute(hash: string): Route {
   const parts = hash.replace(/^#\/?/, "").split("/");
   const [head] = parts;
-  if (head === "login") return { view: "login" };
-  if (head === "signup") return { view: "signup" };
-  if (head === "projects" && typeof parts[1] === "string" && parts[1]) {
-    const project = decodeURIComponent(parts[1]);
-    if (parts[2] === "settings") return { view: "settings", project };
-    return { view: "studio", project };
+  if (!head) return { view: "home" };
+  if (head === "projects") {
+    if (typeof parts[1] === "string" && parts[1]) {
+      const project = decodeURIComponent(parts[1]);
+      if (parts[2] === "settings") return { view: "settings", project };
+      return { view: "studio", project };
+    }
+    return { view: "projects" };
   }
   if (head === "present" && parts[1] && parts[2]) return { view: "present", project: decodeURIComponent(parts[1]), scene: decodeURIComponent(parts[2]) };
-  return { view: "projects" };
+  // Any removed or unknown route falls back to the public home rather than an error screen.
+  return { view: "home" };
 }
 
 export type StudioApplicationError = { message: string; source?: string; stack?: string; href?: string };

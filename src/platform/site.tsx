@@ -5,7 +5,7 @@
  */
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { SEENE_BRAND } from "../core/branding";
-import { LOGIN_ROUTE, PROJECTS_ROUTE, SIGNUP_ROUTE, readRoute } from "./api";
+import { HOME_ROUTE, PROJECTS_ROUTE } from "./api";
 
 export type RailSegment = { kind: "solid" | "dashed"; flex: number };
 export const DEFAULT_RAIL: RailSegment[] = [
@@ -132,34 +132,14 @@ export function MenuIcon() {
 }
 
 export function SiteHeader({ onPalette }: { onPalette: () => void }) {
-  const [hash, setHash] = useState(() => (typeof window === "undefined" ? "" : window.location.hash));
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [account, setAccount] = useState<string | null>(() => {
-    try { return localStorage.getItem("seene-account"); } catch { return null; }
-  });
-  useEffect(() => {
-    const sync = () => setHash(window.location.hash);
-    window.addEventListener("hashchange", sync);
-    return () => window.removeEventListener("hashchange", sync);
-  }, []);
   useEffect(() => {
     const palette = () => onPalette();
     window.addEventListener("seene:palette", palette);
     return () => window.removeEventListener("seene:palette", palette);
   }, [onPalette]);
-  const route = readRoute(hash);
-  const authed = account !== null;
   const mac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
-  const logout = () => {
-    try { localStorage.removeItem("seene-account"); } catch {}
-    setAccount(null);
-    window.location.hash = PROJECTS_ROUTE;
-  };
-  void route;
-  void mac;
-  void logout;
-  void authed;
   return (
     <header className="seene-site-header" role="banner">
       <div className="seene-frame-row" style={{ height: 57 }}>
@@ -168,40 +148,21 @@ export function SiteHeader({ onPalette }: { onPalette: () => void }) {
         <div className="seene-frame-content">
           <nav aria-label="Primary" className="flex h-[57px] items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-1">
-              <a href={PROJECTS_ROUTE} className="flex items-center gap-2" aria-label="Seene home">
-                <img src="/logo-seene.png" alt="" width={23} height={23} style={{ height: 23, width: "auto" }} />
+              <a href={HOME_ROUTE} className="flex items-center gap-2" aria-label="Seene home">
+                <img src={`${import.meta.env.BASE_URL}logo-seene.png`} alt="" width={23} height={23} style={{ height: 23, width: "auto" }} />
                 <span className="text-[15px] font-semibold tracking-tight">{SEENE_BRAND.name}</span>
               </a>
               <div className="ml-3 hidden items-center gap-0.5 lg:flex">
-                <div className="relative" onMouseLeave={() => setOpenMenu(null)}>
-                  <button type="button" className="seene-nav-item" aria-expanded={openMenu === "product"} onMouseEnter={() => setOpenMenu("product")} onClick={() => setOpenMenu(openMenu === "product" ? null : "product")}>
-                    Product
-                  </button>
-                  {openMenu === "product" && (
-                    <div className="seene-dropdown" role="menu">
-                      <a href={PROJECTS_ROUTE} role="menuitem">Studio<small>Compose cinematic scenes</small></a>
-                      <a href={PROJECTS_ROUTE} role="menuitem">Scenes<small>Camera, focus and motion</small></a>
-                    </div>
-                  )}
-                </div>
-                <a className="seene-nav-item" href={PROJECTS_ROUTE}>Docs</a>
-                <a className="seene-nav-item" href={PROJECTS_ROUTE}>Install</a>
+                <a className="seene-nav-item" href="#install">Install</a>
+                <a className="seene-nav-item" href={SEENE_BRAND.docs} target="_blank" rel="noreferrer noopener">Docs</a>
+                <a className="seene-nav-item" href={SEENE_BRAND.examples} target="_blank" rel="noreferrer noopener">Examples</a>
               </div>
             </div>
             <div className="hidden items-center gap-1.5 lg:flex">
-              <button type="button" className="seene-btn seene-btn-ghost seene-btn-nav" onClick={onPalette} aria-label="Command menu">
-                <SearchIcon />
-                <Kbd>{mac ? "⌘K" : "Ctrl+K"}</Kbd>
-              </button>
-              {authed ? (
-                <button type="button" className="seene-btn seene-btn-secondary seene-btn-nav" onClick={logout}>Log out</button>
-              ) : (
-                <>
-                  <a className="seene-btn seene-btn-ghost seene-btn-nav" href={LOGIN_ROUTE}>Log in <Kbd>L</Kbd></a>
-                  <a className="seene-btn seene-btn-secondary seene-btn-nav" href={SIGNUP_ROUTE}>Sign up <Kbd>S</Kbd></a>
-                </>
-              )}
-              <a className="seene-btn seene-btn-primary seene-btn-nav" href={PROJECTS_ROUTE}>Get Seene <Kbd onPrimary>I</Kbd></a>
+              <a className="seene-btn seene-btn-ghost seene-btn-nav" href={SEENE_BRAND.repository} target="_blank" rel="noreferrer noopener">
+                GitHub
+              </a>
+              <a className="seene-btn seene-btn-primary seene-btn-nav" href="#install">Get started <Kbd onPrimary>I</Kbd></a>
             </div>
             <button type="button" className="seene-btn seene-btn-secondary seene-btn-nav lg:hidden" aria-label="Menu" aria-expanded={mobileOpen} onClick={() => setMobileOpen(value => !value)}>
               <MenuIcon />
@@ -214,19 +175,12 @@ export function SiteHeader({ onPalette }: { onPalette: () => void }) {
       {mobileOpen && (
         <div className="lg:hidden" style={{ borderTop: "1px solid var(--seene-border)", background: "var(--seene-surface)" }}>
           <nav aria-label="Mobile" className="flex flex-col gap-1 p-4">
-            <a className="seene-nav-item" href={PROJECTS_ROUTE} onClick={() => setMobileOpen(false)}>Product</a>
-            <a className="seene-nav-item" href={PROJECTS_ROUTE} onClick={() => setMobileOpen(false)}>Docs</a>
-            <a className="seene-nav-item" href={PROJECTS_ROUTE} onClick={() => setMobileOpen(false)}>Install</a>
+            <a className="seene-nav-item" href="#install" onClick={() => setMobileOpen(false)}>Install</a>
+            <a className="seene-nav-item" href={SEENE_BRAND.docs} target="_blank" rel="noreferrer noopener">Docs</a>
+            <a className="seene-nav-item" href={SEENE_BRAND.examples} target="_blank" rel="noreferrer noopener">Examples</a>
             <div className="mt-2 flex flex-wrap gap-2">
-              {authed ? (
-                <button type="button" className="seene-btn seene-btn-secondary seene-btn-nav" onClick={() => { logout(); setMobileOpen(false); }}>Log out</button>
-              ) : (
-                <>
-                  <a className="seene-btn seene-btn-ghost seene-btn-nav" href={LOGIN_ROUTE} onClick={() => setMobileOpen(false)}>Log in</a>
-                  <a className="seene-btn seene-btn-secondary seene-btn-nav" href={SIGNUP_ROUTE} onClick={() => setMobileOpen(false)}>Sign up</a>
-                </>
-              )}
-              <a className="seene-btn seene-btn-primary seene-btn-nav" href={PROJECTS_ROUTE} onClick={() => setMobileOpen(false)}>Get Seene</a>
+              <a className="seene-btn seene-btn-secondary seene-btn-nav" href={SEENE_BRAND.repository} target="_blank" rel="noreferrer noopener">GitHub</a>
+              <a className="seene-btn seene-btn-primary seene-btn-nav" href="#install" onClick={() => setMobileOpen(false)}>Get started</a>
             </div>
           </nav>
         </div>
@@ -235,6 +189,8 @@ export function SiteHeader({ onPalette }: { onPalette: () => void }) {
   );
 }
 
+/** Public-site shortcuts. There is no account to log in to, so these only
+ * move around the page or jump to the install section. */
 export function useSiteShortcuts() {
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -244,15 +200,8 @@ export function useSiteShortcuts() {
       if ((event.key === "k" || event.key === "K") && mod && !event.shiftKey) {
         event.preventDefault();
         window.dispatchEvent(new CustomEvent("seene:palette"));
-      } else if (!mod && !event.altKey && (event.key === "l" || event.key === "L")) {
-        window.location.hash = LOGIN_ROUTE;
-      } else if (!mod && !event.altKey && (event.key === "s" || event.key === "S")) {
-        window.location.hash = SIGNUP_ROUTE;
       } else if (!mod && !event.altKey && (event.key === "i" || event.key === "I")) {
-        window.location.hash = PROJECTS_ROUTE;
-      } else if (!mod && !event.altKey && (event.key === "r" || event.key === "R")) {
-        const field = document.getElementById("project-path") as HTMLInputElement | null;
-        if (field) { event.preventDefault(); field.focus(); field.scrollIntoView({ block: "center" }); }
+        document.getElementById("install")?.scrollIntoView({ behavior: "smooth" });
       }
     };
     window.addEventListener("keydown", onKey);

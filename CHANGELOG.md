@@ -2,6 +2,40 @@
 
 ## 0.1.3
 
+### Landing page
+
+- The public home is now a static, server-free landing page (`src/platform/LandingView.tsx`) served
+  from <https://thatg33k-t33.github.io/Seene/>. It renders the overview, capabilities, install,
+  workflow and project credits without needing the local platform server.
+- **Removed all authentication.** The Sign In / Sign Up forms, their CTAs, the `#/login` and
+  `#/signup` routes and the `seene-account` localStorage state are gone. `AuthView.tsx` is deleted.
+  Primary calls to action are now Get started, View on GitHub, npm package, Docs and Examples.
+- Navigation and the command palette link to real destinations instead of placeholder hash routes.
+- Replaced the duplicated marketing sections in the project console; `ProjectsView` is now only the
+  local studio and explains itself when opened on a static host.
+- Added SEO and Open Graph metadata, a canonical URL, a `<noscript>` fallback and a generated
+  1200x630 social image, all static in `index.html`.
+- Dark is now the default appearance with light kept as an explicit `prefers-color-scheme: light`
+  opt-in, matching the project's cinematic direction.
+- Removed the unused 1.7 MB `public/thatg33k.png`.
+
+### Deployment
+
+- Added `.github/workflows/pages.yml`: builds the static site on pushes to `main` and deploys it to
+  GitHub Pages. It is fully separate from the npm publish workflow.
+- Added `vite.pages.config.ts` and `pnpm build:pages`. The Pages build uses the `/Seene/` base path
+  and excludes the dev-server-only platform plugin. Routing is hash-based, so no SPA rewrite or
+  404 fallback is required.
+
+### Identity and attribution
+
+- `src/core/branding.ts` is the single source of truth for identity and links: product **Seene**,
+  organization **THATG33K**, maintainer **Yonela Johannes**, plus canonical repository, npm, docs,
+  examples and issues URLs.
+- npm `author` is now **Yonela Johannes** (<https://github.com/Yonela-Johannes>) with THATG33K listed
+  as contributor, matching the repository's actual sole author and admin.
+- Landing page and footer credit Yonela Johannes and link to their GitHub profile.
+
 ### Fix: publishing is unblocked
 
 - `scripts/release.mjs` no longer requires `package-lock.json`. It accepts the committed `pnpm-lock.yaml` (or an npm lockfile) so releases install reproducibly. This was the hard failure behind every red `Publish npm package` run.
