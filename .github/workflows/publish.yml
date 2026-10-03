@@ -1,5 +1,5 @@
 name: Publish npm package
-# Verification is local. Only version/packaging changes need a hosted job.
+
 on:
   push:
     branches: [main]
@@ -10,11 +10,14 @@ on:
       - scripts/release.mjs
       - .github/workflows/publish.yml
   workflow_dispatch:
+
 permissions:
   contents: read
+
 concurrency:
   group: npm-publish
   cancel-in-progress: false
+
 jobs:
   publish:
     if: github.ref == 'refs/heads/main'
@@ -24,27 +27,33 @@ jobs:
     permissions:
       contents: read
       id-token: write
+
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
-      # `status` needs no installed dependencies, so it runs first and gates everything after it.
+          registry-url: https://registry.npmjs.org
+
       - name: Skip versions already on npm
         id: release
         run: node scripts/release.mjs status
-      # The committed lockfile is pnpm-lock.yaml; npm ci would demand a package-lock.json.
+
       - name: Install pnpm
         if: steps.release.outputs.publish == 'true'
         run: npm install -g pnpm@11.18.0
+
       - name: Install build dependencies
         if: steps.release.outputs.publish == 'true'
         run: pnpm install --frozen-lockfile --ignore-scripts
+
       - name: Build the npm library and CLI
         if: steps.release.outputs.publish == 'true'
         run: npm run build:package
+
       - name: Publish using npm trusted publishing
         if: steps.release.outputs.publish == 'true'
         run: node scripts/release.mjs publish
