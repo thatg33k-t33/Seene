@@ -93,5 +93,5 @@
 
 ### Publish
 
-- GitHub Actions workflow (`.github/workflows/publish.yml`) uses npm trusted publishing (OIDC) — no `NPM_TOKEN` secret needed.
+- GitHub Actions workflow (`.github/workflows/publish.yml`) now supports both OIDC trusted publishing and `NPM_TOKEN` secret fallback. Added `workflow_dispatch` with optional `npm_token` input for manual publishes with an automation token. The npm authentication step runs after the registry status check so the "skip if already published" step doesn't need credentials.
 - `prepublishOnly` hook runs full `verify:release` before publishing.
