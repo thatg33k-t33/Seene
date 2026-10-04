@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, expect, it, vi } from "vitest";
-import { SceneLibrary, SceneModuleLibrary } from "../../src/preview";
+import { ProjectPreview, SceneLibrary, SceneModuleLibrary } from "../../src/preview";
 
 const image = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aPdwAAAAASUVORK5CYII=";
 const recipe = (id: string, title: string, snapshot?: { image: string; timeMs: number }) => ({
@@ -24,6 +24,25 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   window.history.replaceState({}, "", "/");
+});
+
+it("keeps the preview create-scene dialog accessible and explains a missing Next.js handler accurately", async () => {
+  enterLibrary();
+  const request = vi.fn(async () => ({
+    ok: true,
+    headers: { get: () => "text/html; charset=utf-8" },
+    json: async () => ({}),
+  }));
+  vi.stubGlobal("fetch", request);
+  render(<ProjectPreview projectId="next-project" enabled sceneModules={{}} createSceneEndpoint="/api/seene/create-scene" />);
+  fireEvent.click(await screen.findByRole("button", { name: "+ Create scene" }));
+  const dialog = screen.getByRole("dialog", { name: "Create new scene" });
+  expect(dialog.getAttribute("aria-modal")).toBe("true");
+  expect(dialog.getAttribute("aria-describedby")).toBe("seene-create-description");
+  fireEvent.change(screen.getByLabelText("Scene Title"), { target: { value: "Landing page check" } });
+  fireEvent.submit(screen.getByRole("button", { name: "Create scene" }).closest("form")!);
+  await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Re-run seene init"));
+  expect(request).toHaveBeenCalledWith("/api/seene/create-scene", expect.objectContaining({ method: "POST" }));
 });
 
 it("uses inert cached images without mounting host scenes and recovers a failed image on replacement", () => {

@@ -55,14 +55,6 @@ export function GettingStarted({ onStartCreating }: GettingStartedProps) {
   return (
     <main className="fixed inset-0 overflow-y-auto bg-[var(--seene-bg)] text-[var(--seene-text)]">
       <div className="flex min-h-full w-full flex-col px-6 sm:px-8">
-        <header className="flex h-28 shrink-0 items-center justify-between mx-auto">
-          <img
-            src="/logo-seene.png"
-            alt="Seene"
-            className="h-12 w-auto object-contain"
-          />
-        </header>
-
         <div className="flex min-h-0 flex-1 items-center justify-center">
           <div className="w-full max-w-5xl">
             {!started ? (

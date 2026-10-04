@@ -57,6 +57,10 @@ try{
   await new Promise(r=>staticServer.listen(0,'127.0.0.1',r));children.push({kill:()=>staticServer.close()});url='http://127.0.0.1:'+staticServer.address().port;
  }else{
   dev=await server(kind==='app'?['dev']:['dev','--webpack']);url=dev.url;
+  const created=await fetch(new URL('/api/seene/create-scene',url),{method:'POST',headers:{origin:url,'content-type':'application/json'},body:JSON.stringify({id:'created-from-studio',recipe:{...recipe,id:'created-from-studio',title:'Created from Studio'}})});
+  assert.equal(created.headers.get('content-type')?.includes('application/json'),true,'scene creation must return JSON');
+  assert.equal(created.status,200,await created.clone().text());assert.deepEqual(await created.json(),{success:true,id:'created-from-studio'});
+  assert.ok((await readFile(path.join(host,'src/seene/catalog.js'),'utf8')).includes('created-from-studio.scene.json'));
   await page.goto(url);await expect(page.getByRole('button',{name:'Count 0'})).toBeVisible();
   await page.getByRole('button',{name:'Count 0'}).click();await expect(page.getByRole('button',{name:'Count 1'})).toBeVisible();
   const opened=JSON.parse(await run(process.execPath,[cli,'open','--url',url,'--no-open','--json']));assert.equal(opened.data.url,url+'/seene?seene-preview=1');

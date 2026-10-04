@@ -19,12 +19,13 @@ import React from "react";
 import dynamic from "next/dynamic";
 const Preview = process.env.NODE_ENV === "development" ? dynamic(() => import("./ProjectPreview").then(m => m.SeeneProjectPreview), { ssr: false }) : () => null;
 export default function SeeneStudio() {
-  return <Preview enabled={process.env.NODE_ENV === "development"} active />;
+  return <Preview enabled={process.env.NODE_ENV === "development"} active createSceneEndpoint="/api/seene/create-scene" />;
 }
 `;
   const depth = project.entry.split("/").length - 1;
   const studio = "../".repeat(depth) + "src/seene/Studio";
   if (project.adapter === "next-app") {
+    const appEntry = project.entry.startsWith("src/") ? project.entry.slice(4) : project.entry;
     files[project.entry] = `import React from "react";
 import { notFound } from "next/navigation";
 import SeeneStudio from ${JSON.stringify(studio)};
@@ -33,6 +34,8 @@ export default function SeenePage() {
   return <><meta name="seene-project" content=${JSON.stringify(project.projectId)} /><SeeneStudio /></>;
 }
 `;
+    const routeDirectory = (project.entry.startsWith("src/") ? "src/" : "") + appEntry.slice(0, appEntry.lastIndexOf("/seene/page.jsx"));
+    files[`${routeDirectory}/api/seene/create-scene/route.js`] = `export { POST } from "@thatg33k/seene/next";\nexport const runtime = "nodejs";\n`;
   } else {
     files[project.entry] = `import React from "react";
 import SeeneStudio from ${JSON.stringify(studio)};
@@ -43,6 +46,8 @@ export default function SeenePage() {
   return <><meta name="seene-project" content=${JSON.stringify(project.projectId)} /><SeeneStudio /></>;
 }
 `;
+    const pagesDirectory = project.entry.startsWith("src/") ? "src/pages" : "pages";
+    files[`${pagesDirectory}/api/seene/create-scene.js`] = `import { createPagesHandler } from "@thatg33k/seene/next";\nexport const config = { api: { bodyParser: false } };\nexport default createPagesHandler;\n`;
   }
   return files;
 }

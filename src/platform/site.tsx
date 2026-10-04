@@ -149,7 +149,6 @@ export function SiteHeader({ onPalette }: { onPalette: () => void }) {
           <nav aria-label="Primary" className="flex h-[57px] items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-1">
               <a href={HOME_ROUTE} className="flex items-center gap-2" aria-label="Seene home">
-                <img src={`${import.meta.env.BASE_URL}logo-seene.png`} alt="" width={23} height={23} style={{ height: 23, width: "auto" }} />
                 <span className="text-[15px] font-semibold tracking-tight">{SEENE_BRAND.name}</span>
               </a>
               <div className="ml-3 hidden items-center gap-0.5 lg:flex">
@@ -208,4 +207,3 @@ export function useSiteShortcuts() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 }
-

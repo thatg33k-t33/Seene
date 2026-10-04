@@ -80,6 +80,10 @@
     "./vite": {
       "types": "./dist/library/types/vite/seene-plugin.d.ts",
       "import": "./dist/library/vite.js"
+    },
+    "./next": {
+      "types": "./dist/library/types/vite/next-handler.d.ts",
+      "import": "./dist/library/next.js"
     }
   },
   "files": [

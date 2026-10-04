@@ -10,8 +10,9 @@ async function host(kind="next-app",react="19.1.0"){
  const root=await mkdtemp(path.join(tmpdir(),"seene-portable-"));roots.push(root);
  await put(root,"package.json",JSON.stringify({dependencies:{react,"react-dom":react,"@thatg33k/seene":"0.1.0",...(kind.startsWith("next")?{next:"16.3.5"}:{})},scripts:{dev:"custom-server --anything"}}));
  for(const name of ["react","react-dom"])await put(root,"node_modules/"+name+"/package.json",JSON.stringify({name,version:react}));
- await put(root,"node_modules/@thatg33k/seene/package.json",JSON.stringify({name:"@thatg33k/seene",exports:{"./preview":{import:"./preview.js"}}}));
+ await put(root,"node_modules/@thatg33k/seene/package.json",JSON.stringify({name:"@thatg33k/seene",exports:{"./preview":{import:"./preview.js"},"./next":{import:"./next.js"}}}));
  await put(root,"node_modules/@thatg33k/seene/preview.js","export {}");
+ await put(root,"node_modules/@thatg33k/seene/next.js","export {}");
  if(kind==="next-app")await put(root,"app/layout.tsx",'export default function Layout({children}) { return <html><body>{children}</body></html> }');
  if(kind==="next-src")await put(root,"src/app/layout.jsx",'export default function Layout({children}) { return <html><body>{children}</body></html> }');
  if(kind==="next-pages")await put(root,"pages/_app.tsx",'export default function App({Component,pageProps}) { return <Component {...pageProps}/> }');
@@ -35,12 +36,34 @@ describe("portable host connections",()=>{
   const wrapper=await readFile(path.join(root,"src/seene/ProjectPreview.jsx"),"utf8");
   expect(wrapper).not.toMatch(/import\.meta|process\.|next\//);
   expect(wrapper).toContain('from "@thatg33k/seene/preview"');
+  if(kind==="next-app") {
+   expect(await readFile(path.join(root,"app/api/seene/create-scene/route.js"),"utf8")).toContain('from "@thatg33k/seene/next"');
+   expect(await readFile(path.join(root,"src/seene/Studio.jsx"),"utf8")).toContain('createSceneEndpoint="/api/seene/create-scene"');
+  }
+  if(kind==="next-pages") {
+   expect(await readFile(path.join(root,"pages/api/seene/create-scene.js"),"utf8")).toContain("createPagesHandler");
+   expect(await readFile(path.join(root,"src/seene/Studio.jsx"),"utf8")).toContain('createSceneEndpoint="/api/seene/create-scene"');
+  }
  });
  it.each(["18.2.0","18.3.1","19.0.0","19.1.0","19.2.0"])("uses supported installed React %s without installing Vite",async react=>{
   const root=await host("custom",react);success(await run(root));expect(await readdir(root)).not.toContain("vite.config.ts");
  });
  it("rejects an incompatible React renderer before writes",async()=>{
   const root=await host("custom","17.0.2");expect(await run(root)).toMatchObject({success:false,issues:[{code:"missing-installation"}]});expect(await readdir(root)).not.toContain(".seene");
+ });
+ it("installs the CLI-matched package version in a clean Next.js project before generating its API route",async()=>{
+  const root=await host();
+  await rm(path.join(root,"node_modules/@thatg33k/seene"),{recursive:true,force:true});
+  const install=vi.spyOn(services,"installPackage").mockImplementation(async(projectRoot,source)=>{
+   expect(source).toBe("@thatg33k/seene@0.2.0");
+   await put(projectRoot,"node_modules/@thatg33k/seene/package.json",JSON.stringify({name:"@thatg33k/seene",exports:{"./preview":{import:"./preview.js"},"./next":{import:"./next.js"}}}));
+   await put(projectRoot,"node_modules/@thatg33k/seene/preview.js","export {}");
+   await put(projectRoot,"node_modules/@thatg33k/seene/next.js","export {}");
+  });
+  const initialized=success(await command("init-project",{},{root,version:"0.2.0"}));
+  expect(install).toHaveBeenCalledExactlyOnceWith(root,"@thatg33k/seene@0.2.0","npm");
+  expect(initialized.integration?.route).toBe("/seene");
+  expect(await readFile(path.join(root,"app/api/seene/create-scene/route.js"),"utf8")).toContain("@thatg33k/seene/next");
  });
  it("detects a Next 15 App Router host from its declared framework before considering Vite",async()=>{
   const root=await host("next-app");
@@ -79,6 +102,7 @@ describe("portable host connections",()=>{
   expect(initialized.integration).toMatchObject({kind:"next-app",route:"/seene"});
   expect(await readFile(path.join(root,"src/app/(app)/page.tsx"),"utf8")).toBe(page);
   expect(await readFile(path.join(root,"src/app/(app)/seene/page.jsx"),"utf8")).toContain("SeeneStudio");
+  expect(await readFile(path.join(root,"src/app/(app)/api/seene/create-scene/route.js"),"utf8")).toContain("@thatg33k/seene/next");
   success(await run(root,"validate-project"));
  });
  it("gives an actionable unavailable-server error for the generated Next route",async()=>{
@@ -125,7 +149,20 @@ describe("portable host connections",()=>{
   const upgraded=success(await run(root));
   expect(upgraded.changed).toBe(true);
   expect(await readFile(path.join(root,"SEENE.md"),"utf8")).toContain("development-only Studio route at");
+  expect(await readFile(path.join(root,"app/api/seene/create-scene/route.js"),"utf8")).toContain("@thatg33k/seene/next");
   expect(success(await run(root,"validate-project")).project).toEqual(upgraded.project);
+ });
+ it("adds the new local scene API to an existing managed Next.js connection without replacing host files",async()=>{
+  const root=await host("next-app");success(await run(root));
+  const manifestPath=path.join(root,".seene/integration.json");
+  const manifest=JSON.parse(await readFile(manifestPath,"utf8"));
+  delete manifest.files["app/api/seene/create-scene/route.js"];
+  await writeFile(manifestPath,JSON.stringify(manifest,null,2)+"\n");
+  await rm(path.join(root,"app/api/seene/create-scene/route.js"));
+  const upgraded=success(await run(root));
+  expect(upgraded.changed).toBe(true);
+  expect(await readFile(path.join(root,"app/api/seene/create-scene/route.js"),"utf8")).toContain("@thatg33k/seene/next");
+  success(await run(root,"validate-project"));
  });
  it("can explicitly use the generic connection in any Next host",async()=>{
   const root=await host();const result=success(await run(root,"init-project",{adapter:"react"}));expect(result.integration?.kind).toBe("react");expect(await readdir(path.join(root,"app"))).toEqual(["layout.tsx"]);

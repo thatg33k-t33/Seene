@@ -50,7 +50,7 @@ function agentHandoff(manager: PackageManager = "pnpm", adapter?: ProjectState["
     prompt: "Open the Seene studio, select your app components, and use the camera inspector to compose cinematic perspective, focal depth and motion.",
   };
   const connection = adapter === "next-app" || adapter === "next-pages"
-    ? `Next.js connection: init generated a development-only Studio route at \`/seene\`; it does not rewrite your homepage or layouts. Keep \`next dev\` running and open it with \`${run} open --url http://localhost:3000\`. The route inherits the host layout and providers.`
+    ? `Next.js connection: init generated a development-only Studio route at \`/seene\` and a local scene-creation API at \`/api/seene/create-scene\`; it does not rewrite your homepage or layouts. Keep \`next dev\` running and open it with \`${run} open --url http://localhost:3000\`. The route inherits the host layout and providers.`
     : adapter === "react"
       ? `Manual React connection: init generated \`src/seene/ProjectPreview.jsx\` and \`src/seene/catalog.js\`, but deliberately did not edit your renderer entry. Import \`SeeneProjectPreview\` from the generated file using a path relative to the entry/layout where you mount it, then wrap the existing app inside its providers with \`enabled={developmentFlag}\` (for Next.js, \`process.env.NODE_ENV === "development"\`; for Vite, \`import.meta.env.DEV\`). Leave \`active\` unset so \`?seene-preview=1\` activates it. Then start the app with its own dev script and run \`${run} open --url <origin>\`. Until mounted, \`open\` reports \`manual-preview\` rather than claiming the route is ready.`
       : `Vite connection: init wraps the existing React root and generated \`src/seene/ProjectPreview.tsx\`; open the running app with \`${run} open --url http://localhost:5173\`. To let Studio create recipe/component files on the Vite dev server, add \`seeneCreateScenePlugin()\` from \`${SEENE_PACKAGE}/vite\` to the existing plugins array without removing the React plugin.`;
@@ -154,7 +154,7 @@ async function hostDependenciesValid(root: string) {
       throw fault("missing-installation", `Missing or incompatible installed ${name}. Install this project's declared React 18.2+ or 19.x dependencies with its package manager, then retry seene init.`, "node_modules/" + name + "/package.json");
   }
 }
-async function installationValid(root: string, requireToolkit = true) {
+async function installationValid(root: string, requireToolkit = true, requireNextRouteHandler = false) {
   const pkg = await packageAt(root, "package.json");
   await hostDependenciesValid(root);
   const toolkit = await packageAt(root, "node_modules/@thatg33k/seene/package.json");
@@ -164,13 +164,16 @@ async function installationValid(root: string, requireToolkit = true) {
   }
   if (toolkit.name !== "@thatg33k/seene" || !(pkg?.dependencies?.["@thatg33k/seene"] || pkg?.devDependencies?.["@thatg33k/seene"]))
     throw fault("conflict", "Seene installation must match a declared @thatg33k/seene dependency.");
-  const exports = toolkit.exports;
-  const preview = exports && typeof exports === "object" && !Array.isArray(exports) ? (exports as Record<string, unknown>)["./preview"] : undefined;
-  const target = typeof preview === "string" ? preview
-    : preview && typeof preview === "object" && !Array.isArray(preview) ? (preview as Record<string, unknown>).import : undefined;
-  if (typeof target !== "string" || !target.startsWith("./")
-    || await services.readDependency(root, "@thatg33k/seene", target.slice(2)) === undefined)
-    throw fault("missing-installation", "Installed @thatg33k/seene lacks the preview entry. Install the supported Seene package and retry.");
+  const exports = toolkit.exports && typeof toolkit.exports === "object" && !Array.isArray(toolkit.exports)
+    ? toolkit.exports as Record<string, unknown> : {};
+  for (const subpath of ["./preview", ...(requireNextRouteHandler ? ["./next"] : [])]) {
+    const entry = exports[subpath];
+    const target = typeof entry === "string" ? entry
+      : entry && typeof entry === "object" && !Array.isArray(entry) ? (entry as Record<string, unknown>).import : undefined;
+    if (typeof target !== "string" || !target.startsWith("./")
+      || await services.readDependency(root, "@thatg33k/seene", target.slice(2)) === undefined)
+      throw fault("missing-installation", `Installed @thatg33k/seene lacks the ${subpath} runtime entry. Install the supported Seene package and retry.`);
+  }
   return true;
 }
 // `npx @thatg33k/seene init` has no local tarball to install, so fall back to this exact
@@ -203,7 +206,7 @@ async function previewAdapterFor(root: string, entry: string) {
 }
 async function initialize(root: string, packageSource: string | undefined, requestedAdapter?: string, version?: string): Promise<ProjectResult> {
   const portable = await portableHost(root, requestedAdapter);
-  if (portable) return initializePortable(root, portable, packageSource);
+  if (portable) return initializePortable(root, portable, packageSource, version);
   const host = await inspectProject(root);
   const adapter = await previewAdapterFor(root, host.entry);
   const adapterText = adapter.existing;
@@ -291,7 +294,7 @@ async function load(root: string) {
       throw fault("incomplete-setup", "Run seene init to upgrade the installed preview refresh boundary.", adapter.path);
     throw fault("conflict", "The generated preview adapter is missing or changed. Review it and run seene init.", adapter.path);
   }
-  await installationValid(root);
+  await installationValid(root,true,saved.project.adapter==="next-app"||saved.project.adapter==="next-pages");
   return saved.project;
 }
 async function openPreview(root: string, input: z.output<typeof RESOURCES["open-preview"]>) {
@@ -400,12 +403,14 @@ async function portableHost(root:string, requested?:string):Promise<PortableHost
       const routeDirectory=await nextAppRouteDirectory(root,base);
       if(routeDirectory) {
         await ensureNextRouteAvailable(root,routeDirectory+"/seene","page");
+        await ensureNextRouteAvailable(root,routeDirectory+"/api/seene/create-scene","route");
         return {adapter:"next-app",entry:routeDirectory+"/seene/page.jsx"};
       }
     }
     for (const base of ["pages","src/pages"]) {
       if ((await services.scanDirectory(root,base,1024)).length) {
         await ensureNextRouteAvailable(root,base,"seene");
+        await ensureNextRouteAvailable(root,base+"/api/seene","create-scene");
         return {adapter:"next-pages",entry:base+"/seene.jsx"};
       }
     }
@@ -458,7 +463,7 @@ async function portableFiles(root:string, project:ProjectState, catalog:string) 
   const files = portableIntegration(project,catalog);
   return files;
 }
-async function initializePortable(root:string, host:PortableHost, packageSource?:string):Promise<ProjectResult> {
+async function initializePortable(root:string, host:PortableHost, packageSource?:string, version?:string):Promise<ProjectResult> {
   const saved=await stateFor(root);
   const pendingText=await services.readText(root,portablePendingPath);
   const pending=pendingText===undefined?undefined:decode(pendingText,ManagedSchema,portablePendingPath);
@@ -475,8 +480,8 @@ async function initializePortable(root:string, host:PortableHost, packageSource?
   files[generated.handoff.path]=generated.text;
   if(pending && JSON.stringify(pending.files)!==JSON.stringify(files))throw fault("conflict","Pending setup differs.");
   if(existing) {
-    const priorFiles={...files,"SEENE.md":existing.files["SEENE.md"]};
-    if(JSON.stringify(existing.files)!==JSON.stringify(priorFiles))throw fault("conflict","Managed Seene files differ.");
+    for(const target of Object.keys(existing.files))
+      if(target!=="SEENE.md" && !Object.hasOwn(files,target))throw fault("conflict","A previously managed Seene file is no longer part of this integration.",target);
   }
   for(const [target,text] of Object.entries(files)) {
     const current=await services.readText(root,target);
@@ -484,15 +489,20 @@ async function initializePortable(root:string, host:PortableHost, packageSource?
     if(current!==undefined && current!==text && current!==recorded)throw fault("conflict","Seene will not overwrite an existing file.",target);
   }
   await hostDependenciesValid(root);
-  const installed=await installationValid(root,false);
-  const source=installed?undefined:await sourceForInstall(root,packageSource);
-  if(existing && saved.project && !pending && existing.files["SEENE.md"]===generated.text) {
+  const needsNextHandler=host.adapter==="next-app"||host.adapter==="next-pages";
+  let installed=false;
+  try { installed=await installationValid(root,false,needsNextHandler); }
+  catch(error) {
+    if((!packageSource&&!version) || !(error instanceof Error) || !("code" in error) || error.code!=="missing-installation")throw error;
+  }
+  const source=installed?undefined:await sourceForInstall(root,packageSource,version);
+  if(existing && saved.project && !pending && existing.files["SEENE.md"]===generated.text && JSON.stringify(existing.files)===JSON.stringify(files)) {
     await verifyPortable(root,project);
     return {success:true,data:{project,changed:false,handoff:generated.handoff,integration:integrationInfo(project)}};
   }
   const journal=JSON.stringify({project,files},null,2)+"\n";
   if(!pendingText)await services.atomicWrite(root,portablePendingPath,journal,undefined);
-  if(source){await services.installPackage(root,source,project.packageManager);await installationValid(root);}
+  if(source){await services.installPackage(root,source,project.packageManager);await installationValid(root,true,needsNextHandler);}
   for(const [target,text] of Object.entries(files)) {
     const current=await services.readText(root,target);
     if(current===undefined)await services.atomicWrite(root,target,text,undefined);
@@ -519,7 +529,7 @@ async function verifyPortable(root:string,project:ProjectState) {
   expected["SEENE.md"]=agentHandoff(project.packageManager,project.adapter).text;
   if(JSON.stringify(expected)!==JSON.stringify(managed.files))throw fault("conflict","Managed file list differs.");
   for(const [target,content] of Object.entries(expected))if(await services.readText(root,target)!==content)throw fault("conflict","Generated connection changed.",target);
-  await installationValid(root);
+  await installationValid(root,true,project.adapter==="next-app"||project.adapter==="next-pages");
 }
 async function synchronize(root:string):Promise<ProjectResult> {
   const project=(await stateFor(root)).project;

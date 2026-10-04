@@ -12,6 +12,7 @@ export function SceneModuleLibrary({
   backHref,
   hostContent,
   applicationRoute,
+  createSceneEndpoint,
   onApplicationIssue,
 }: {
   modules: SceneModules;
@@ -19,6 +20,7 @@ export function SceneModuleLibrary({
   backHref?: string;
   hostContent?: ReactNode;
   applicationRoute?: string;
+  createSceneEndpoint?: string;
   onApplicationIssue?: (issue: ApplicationIssue) => void;
 }) {
   const connection = usePreviewConnection(hot, pause);
@@ -115,6 +117,7 @@ export function SceneModuleLibrary({
       hot={hot}
       backHref={backHref}
       applicationRoute={applicationRoute}
+      createSceneEndpoint={createSceneEndpoint}
       onApplicationIssue={onApplicationIssue}
     />
   );

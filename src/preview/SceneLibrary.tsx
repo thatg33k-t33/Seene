@@ -32,6 +32,7 @@ export type SceneLibraryProps = {
   hot?: PreviewHot;
   backHref?: string;
   applicationRoute?: string;
+  createSceneEndpoint?: string;
   onApplicationIssue?: (issue: ApplicationIssue) => void;
 };
 
@@ -143,6 +144,7 @@ export function SceneLibrary({
   hot,
   backHref,
   applicationRoute,
+  createSceneEndpoint = "/__seene/create-scene",
   onApplicationIssue,
 }: SceneLibraryProps) {
   const [entered, setEntered] = useState(() => {
@@ -372,14 +374,14 @@ export function SceneLibrary({
     }
 
     try {
-      const res = await fetch("/__seene/create-scene", {
+      const res = await fetch(createSceneEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, recipe })
       });
       const contentType = res.headers.get("content-type") || "";
       if (!contentType.includes("application/json")) {
-        setCreateError(`The development server at ${window.location.origin} returned HTML instead of JSON. Make sure Seene Studio is connected.`);
+        setCreateError(`Seene's scene-creation endpoint at ${createSceneEndpoint} returned HTML instead of JSON. Re-run seene init to generate or repair the local API route. For a custom Vite renderer, add seeneCreateScenePlugin() from @thatg33k/seene/vite.`);
         setCreateSubmitting(false);
         return;
       }
@@ -643,12 +645,12 @@ export function SceneLibrary({
       )}
 
       {isCreating && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200 pointer-events-auto">
-          <div className="w-full max-w-md rounded-2xl border border-[var(--seene-border-text)] bg-[var(--seene-surface-2)] p-6 text-[var(--seene-text)] shadow-2xl space-y-5">
-            <div className="flex items-center justify-between border-b border-[var(--seene-border-text)] pb-4">
-              <div>
-                  <h2 className="text-lg font-semibold text-[var(--seene-text)]">Create new scene</h2>
-                <p className="text-xs text-[var(--seene-text-muted)] mt-1">Name your scene. Seene will generate the recipe and component files in your project.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-200 pointer-events-auto">
+          <section role="dialog" aria-modal="true" aria-labelledby="seene-create-title-heading" aria-describedby="seene-create-description" className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-[var(--seene-border-text)] bg-[var(--seene-surface-2)] p-6 text-[var(--seene-text)] shadow-2xl space-y-5">
+            <div className="flex items-start justify-between gap-4 border-b border-[var(--seene-border-text)] pb-4">
+              <div className="min-w-0">
+                <h2 id="seene-create-title-heading" className="text-lg font-semibold text-[var(--seene-text)]">Create new scene</h2>
+                <p id="seene-create-description" className="mt-1 text-xs leading-relaxed text-[var(--seene-text-muted)]">Name your scene. Seene will generate the recipe and component files in your project.</p>
               </div>
                 <button
                   type="button"
@@ -714,7 +716,7 @@ export function SceneLibrary({
                 </button>
               </div>
             </form>
-          </div>
+          </section>
         </div>
       )}
     </main>

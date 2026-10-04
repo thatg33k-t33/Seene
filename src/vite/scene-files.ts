@@ -1,4 +1,4 @@
-import { lstat, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { SCENE_RECIPE_DIRECTORY, type SceneCatalog, type SceneRecipe } from "../core/recipes";
 import { RESOURCES } from "../core/resources";
@@ -69,17 +69,58 @@ export async function readSceneCatalog(root: string, sceneId?: string): Promise<
   return { ...catalog, issues: [...issues, ...catalog.issues].sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0) };
 }
 
+async function replaceIfUnchanged(root: string, target: string, before: string, after: string): Promise<void> {
+  const absolute = await resolveProjectTarget(root, target);
+  const current = await readFile(absolute, "utf8").catch(() => undefined);
+  if (current !== before) throw new PlatformFault("conflict", "Generated catalog changed during scene creation; run npx seene sync to recover.", target);
+  const temporary = `${absolute}.${Math.random().toString(36).slice(2)}.tmp`;
+  await writeFile(temporary, after, { encoding: "utf8", flag: "wx" });
+  const checked = await readFile(absolute, "utf8").catch(() => undefined);
+  if (checked !== before) { await rm(temporary, { force: true }); throw new PlatformFault("conflict", "Generated catalog changed during scene creation; run npx seene sync to recover.", target); }
+  await rename(temporary, absolute);
+}
+
 export async function syncCatalog(root: string): Promise<void> {
-  const catalogPath = await resolveProjectTarget(root, "src/seene/catalog.js").catch(() => undefined);
+  const catalogTarget = "src/seene/catalog.js";
+  const catalogPath = await resolveProjectTarget(root, catalogTarget).catch(() => undefined);
   if (!catalogPath) return;
   const exists = await lstat(catalogPath).then(stat => stat.isFile(), () => false);
   if (!exists) return;
 
   const catalog = await readSceneCatalog(root).catch(() => undefined);
   if (!catalog) return;
-
   const catalogText = portableCatalog(catalog.scenes);
-  await writeFile(catalogPath, catalogText, "utf8");
+  const before = await readFile(catalogPath, "utf8");
+  if (catalogText === before) return;
+
+  const manifestPath = ".seene/integration.json";
+  const manifestText = await readFile(await resolveProjectTarget(root, manifestPath), "utf8").catch(error => {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
+  });
+  if (manifestText === undefined) {
+    await replaceIfUnchanged(root, catalogTarget, before, catalogText);
+    return;
+  }
+
+  let manifest: { version?: unknown; files?: Record<string, unknown> };
+  try { manifest = JSON.parse(manifestText) as typeof manifest; }
+  catch { throw new PlatformFault("invalid-file", "Cannot safely refresh the generated catalog because .seene/integration.json is invalid.", manifestPath); }
+  if (!manifest.files || typeof manifest.files[catalogTarget] !== "string")
+    throw new PlatformFault("conflict", "The generated catalog is not recorded as a managed Seene file; run seene init to repair the connection.", manifestPath);
+  if (manifest.files[catalogTarget] !== before)
+    throw new PlatformFault("conflict", "The generated catalog was edited outside Seene; run npx seene sync to review and recover.", catalogTarget);
+
+  const pendingTarget = ".seene/catalog-pending.json";
+  const pendingPath = await resolveProjectTarget(root, pendingTarget);
+  if (await lstat(pendingPath).then(() => true, () => false))
+    throw new PlatformFault("conflict", "A previous catalog refresh was interrupted; run npx seene sync to recover it.", pendingTarget);
+  const journal = JSON.stringify({ before, after: catalogText });
+  await writeFile(pendingPath, journal, { encoding: "utf8", flag: "wx" });
+  await replaceIfUnchanged(root, catalogTarget, before, catalogText);
+  manifest.files[catalogTarget] = catalogText;
+  await replaceIfUnchanged(root, manifestPath, manifestText, JSON.stringify(manifest, null, 2) + "\n");
+  await rm(pendingPath, { force: true });
 }
 
 export async function writeSceneSourcePair(root: string, id: string, recipe: SceneRecipe, componentSource: string): Promise<"created" | "exists"> {
@@ -89,18 +130,21 @@ export async function writeSceneSourcePair(root: string, id: string, recipe: Sce
   const exists = (target: string) => lstat(target).then(() => true, () => false);
   if (await exists(recipePath) || await exists(bindingPath)) return "exists";
   await mkdir(directory, { recursive: true });
-  let created = false;
+  let componentCreated = false;
+  let recipeCreated = false;
   try {
     await writeFile(bindingPath, componentSource, { encoding: "utf8", flag: "wx" });
-    created = true;
-    await writeFile(recipePath, JSON.stringify(recipe, null, 2), { encoding: "utf8", flag: "wx" });
-    await syncCatalog(root);
-    return "created";
+    componentCreated = true;
+    await writeFile(recipePath, JSON.stringify(recipe, null, 2) + "\n", { encoding: "utf8", flag: "wx" });
+    recipeCreated = true;
   } catch (error) {
-    if (created) await rm(bindingPath, { force: true });
+    if (recipeCreated) await rm(recipePath, { force: true });
+    if (componentCreated) await rm(bindingPath, { force: true });
     if ((error as NodeJS.ErrnoException).code === "EEXIST") return "exists";
     throw error;
   }
+  await syncCatalog(root);
+  return "created";
 }
 
 export async function removeSceneSourcePair(root: string, id: string): Promise<boolean> {

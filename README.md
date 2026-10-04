@@ -33,7 +33,7 @@ The CLI installs `@thatg33k/seene` using the package manager detected for your p
 
 The generated connection depends on the host:
 
-- **Next.js App/Pages Router:** adds a development-only `/seene` Studio route and generated files under `src/seene/`. It does not rewrite the homepage, layouts, or providers.
+- **Next.js App/Pages Router:** adds a development-only `/seene` Studio route, a local `/api/seene/create-scene` handler, and generated files under `src/seene/`. It does not rewrite the homepage, layouts, or providers.
 - **Standard Vite React:** wraps the existing React root and creates `src/seene/ProjectPreview.tsx`. It does not replace the Vite config or React plugin.
 - **Custom React DOM renderer:** creates `src/seene/ProjectPreview.jsx` and `src/seene/catalog.js`, but does not edit the host entry. Mount it manually as described below.
 
@@ -94,7 +94,7 @@ Standard Vite uses a development `import.meta.glob` and updates as files change;
 
 ### 4. Mount and activate the preview
 
-**Next.js (automatic):** the generated `/seene` route mounts the Studio in development. Keep the host layout/providers intact; no homepage integration is needed. Start Next with the project's own command, then run the open command below.
+**Next.js (automatic):** the generated `/seene` route mounts the Studio in development, and `/api/seene/create-scene` safely writes scene pairs and refreshes the generated import catalog. Keep the host layout/providers intact; no homepage integration is needed. Start Next with the project's own command, then run the open command below. If upgrading a project initialized by an earlier Seene version, rerun `npx seene init` to add the managed API route.
 
 **Standard Vite (automatic):** init wraps the existing React root with a development-only preview gate. Keep the existing React plugin. To enable creating recipe/component files from Studio, add `seeneCreateScenePlugin()` from `@thatg33k/seene/vite` to the existing Vite `plugins` array; this plugin is optional for discovery and preview.
 
