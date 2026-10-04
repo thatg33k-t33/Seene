@@ -55,13 +55,22 @@ describe("portable host connections",()=>{
   await rm(path.join(root,"SEENE.md"));success(await run(root));await put(root,"src/seene/ProjectPreview.jsx","edited");
   expect(await run(root,"validate-project")).toMatchObject({success:false,issues:[{code:"conflict"}]});
  });
- it("uses the canonical catalog, supports JSX and refuses ambiguous bindings",async()=>{
-  const root=await host();success(await run(root));await scene(root);success(await run(root,"sync-project"));
-  expect(await readFile(path.join(root,"src/seene/catalog.js"),"utf8")).toContain('./scenes/one');
-  expect(success(await run(root,"sync-project")).changed).toBe(false);success(await run(root));
-  await put(root,"src/seene/scenes/one.tsx","export default function Scene(){return null}");
-  expect(await run(root,"sync-project")).toMatchObject({success:false,issues:[{code:"invalid-scenes"}]});
- });
+  it("uses the canonical catalog, supports JSX and refuses ambiguous bindings",async()=>{
+   const root=await host();success(await run(root));await scene(root);success(await run(root,"sync-project"));
+   expect(await readFile(path.join(root,"src/seene/catalog.js"),"utf8")).toContain('./scenes/one');
+   expect(success(await run(root,"sync-project")).changed).toBe(false);success(await run(root));
+   await put(root,"src/seene/scenes/one.tsx","export default function Scene(){return null}");
+   expect(await run(root,"sync-project")).toMatchObject({success:false,issues:[{code:"invalid-scenes"}]});
+  });
+  it("rejects orphaned scene recipes missing a .tsx or .jsx component",async()=>{
+   const root=await host();success(await run(root));
+   await put(root,"src/seene/scenes/orphan.scene.json",JSON.stringify({version:1,id:"orphan",title:"Orphan",definition:{scene:{nodes:[{id:"ui"}]}}}));
+   const orphaned=await run(root,"sync-project");
+   expect(orphaned).toMatchObject({success:false,issues:[{code:"invalid-scenes",message:/needs matching component/}]});
+   await put(root,"src/seene/scenes/orphan.tsx","export default function Scene(){return null}");
+   const resolved=success(await run(root,"sync-project"));
+   expect(resolved).toHaveProperty("changed",true);
+  });
  it("recovers interrupted additive init without replacing existing files",async()=>{
   const root=await host();const actual=services.atomicWrite;let failed=false;
   vi.spyOn(services,"atomicWrite").mockImplementation(async(...args)=>{if(args[1]==="src/seene/Studio.jsx"&&!failed){failed=true;throw Error("interrupted");}return actual(...args)});

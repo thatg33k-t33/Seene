@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.5
+
+### Fix: invalid-scenes regression test
+- Added test confirming that an orphaned `.scene.json` recipe (without matching `.tsx`/`.jsx`) correctly produces `invalid-scenes`, and that adding the component resolves it. This clarifies the expected behavior for users who encounter stale recipe files.
+
 ## 0.1.4
 
 ### Publish metadata
