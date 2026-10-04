@@ -59,8 +59,8 @@ export function FrameSection({
       </div>
       {showBottom && (
         <>
-          <span className="seene-node" style={{ left: "calc(50% - min(36rem, 100vw - 3rem) - 3.5px)", bottom: "-3.5px" }} aria-hidden="true" />
-          <span className="seene-node" style={{ right: "calc(50% - min(36rem, 100vw - 3rem) - 3.5px)", bottom: "-3.5px" }} aria-hidden="true" />
+          <span className="seene-node" style={{ left: "calc(50% - min(36rem, 50vw - 1.5rem) - 3.5px)", bottom: "-3.5px" }} aria-hidden="true" />
+          <span className="seene-node" style={{ right: "calc(50% - min(36rem, 50vw - 1.5rem) - 3.5px)", bottom: "-3.5px" }} aria-hidden="true" />
         </>
       )}
     </section>

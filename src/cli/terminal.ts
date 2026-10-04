@@ -141,6 +141,8 @@ export function formatOnboarding(
     if (integration.route) {
       parts.push(line(`  Development route: ${integration.route}`));
     }
+
+    parts.push(line(`  ${integration.instructions}`));
   }
 
   if (handoff) {

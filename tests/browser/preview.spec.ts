@@ -1,32 +1,26 @@
 import {test,expect} from '@playwright/test';
-import {SEENE_BRAND} from '../../src/core/branding';
-test('real entry teaches the studio workflow and opens real scenes without fake playback',async({page})=>{
+
+test('public landing page documents installation, scene authoring, discovery and framework-specific preview',async({page})=>{
  await page.goto('/');
- await expect(page).toHaveTitle(SEENE_BRAND.title);
- await expect(page.getByRole('heading',{name:'Turn your app into a cinematic experience.'})).toBeVisible();
- await expect(page.getByRole('button',{name:'Play',exact:true})).toHaveCount(0);
- await page.getByRole('button',{name:'Get started'}).click();
- await expect(page.getByRole('heading',{name:'Add Seene to your app'})).toBeVisible();
- await expect(page.getByText('pnpm exec seene init')).toBeVisible();
- await page.getByRole('button',{name:'Next'}).click();
- await expect(page.getByRole('heading',{name:'Open the studio'})).toBeVisible();
- await page.getByRole('button',{name:'Next'}).click();
- await expect(page.getByRole('heading',{name:'Create a scene'})).toBeVisible();
- await page.getByRole('button',{name:'Start creating'}).click();
- const scroller=page.getByRole('region',{name:'Scene library'});
- await expect(scroller).toBeVisible();
- await expect(page.getByRole('heading',{name:'Your scenes'})).toBeVisible();
- await expect(page.getByText('2 scenes',{exact:true})).toBeVisible();
- await expect(page.getByRole('button',{name:'Play',exact:true})).toHaveCount(0);
- await page.locator('[data-scene-id="website"]').focus();
- await page.keyboard.press('Enter');
- await expect(page.getByRole('heading',{name:'Website',exact:true})).toBeVisible();
- await expect(page.getByRole('alert')).toHaveCount(0);
- await expect(page.getByRole('button',{name:'Play',exact:true})).toBeEnabled();
- await page.getByRole('link',{name:'Back to scenes',exact:true}).click();
- await expect(scroller).toBeVisible();
- await page.setViewportSize({width:390,height:844});
- expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
+ await expect(page).toHaveTitle('Seene — cinematic scenes for real React interfaces');
+ await expect(page.getByRole('heading',{name:'Present your React interfaces as cinematic scenes.'})).toBeVisible();
+ await expect(page.getByText('Needs Node 22.12+ and React 18.2+ or 19.')).toBeVisible();
+ await page.getByLabel('Overview').getByRole('link',{name:'Get started'}).click();
+ await expect(page).toHaveURL(/#install$/);
+ await expect(page.getByRole('heading',{name:'Install and start'})).toBeVisible();
+ await expect(page.getByText('1 · Install and initialize')).toBeVisible();
+ await expect(page.getByText('2 · Author a recipe and matching component')).toBeVisible();
+ await expect(page.getByText('3 · Discover and validate')).toBeVisible();
+ await expect(page.getByText('4 · Start your app and open its local preview')).toBeVisible();
+ const guide=page.getByLabel('Install and start');
+ await expect(guide.getByText('npx @thatg33k/seene init')).toBeVisible();
+ await expect(guide.getByText('npx seene scenes --json')).toBeVisible();
+ await expect(guide.getByText('npx seene validate')).toBeVisible();
+ await expect(guide.getByText('npx seene sync')).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Next.js'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Standard Vite'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Custom React renderer · manual mount'})).toBeVisible();
+ await expect(page.getByText('src/seene/scenes', {exact:true})).toBeVisible();
 });
 test('one product shell preserves real host context and state through seek and playback controls',async({page})=>{
  let requests=0;page.on('request',request=>{if(request.url().endsWith('/data.json'))requests++});
@@ -104,72 +98,36 @@ test('scene cover fills every viewport and the bottom backdrop progressively blu
  await expect.poll(async()=>(await contrast())[2]).toBeGreaterThan(150);
 });
 
-test('onboarding stays reachable on small screens and keeps the creator link reachable',async({page})=>{
+test('landing page remains usable at narrow viewports and its install call to action is reachable',async({page})=>{
  await page.goto('/');
- await expect(page).toHaveTitle(SEENE_BRAND.title);
+ await expect(page).toHaveTitle('Seene — cinematic scenes for real React interfaces');
  for(const size of [{width:1440,height:1000},{width:390,height:844},{width:667,height:320},{width:320,height:568}]){
   await page.setViewportSize(size);
-  const start=page.getByRole('button',{name:'Get started'});
+  const start=page.getByLabel('Overview').getByRole('link',{name:'Get started'});
   await start.scrollIntoViewIfNeeded();
   await expect(start).toBeInViewport();
-  const creator=page.getByRole('link',{name:'THATG33K'});
-  await creator.scrollIntoViewIfNeeded();
-  await expect(creator).toBeInViewport();
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(size.width);
+        expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(size.width);
  }
- const creator=page.getByRole('link',{name:'THATG33K'});
- await expect(creator).toHaveAttribute('href',SEENE_BRAND.url);
- await expect(creator).toHaveAttribute('rel','noopener noreferrer');
- await expect(creator).toHaveAttribute('target','_blank');
- await creator.focus();
- await expect(creator).toBeFocused();
- await page.screenshot({path:'test-results/studio-onboarding-mobile.png'});
+ await page.getByLabel('Overview').getByRole('link',{name:'Get started'}).focus();
+ await expect(page.getByLabel('Overview').getByRole('link',{name:'Get started'})).toBeFocused();
+ await page.screenshot({path:'test-results/seene-landing-mobile.png'});
 });
 
-test('catalog keeps native scrolling, row numbering and scene round-trip navigation',async({page})=>{
- await page.addInitScript(()=>localStorage.setItem('seene-entered','true'));
- await page.goto('/');
- const scroller=page.getByRole('region',{name:'Scene library'});
- await expect(scroller).toBeVisible();
- await expect(page.getByRole('heading',{name:'Your scenes'})).toBeVisible();
- await expect(page.getByText('2 scenes',{exact:true})).toBeVisible();
- await expect(page.locator('[data-scene-id]')).toHaveCount(2);
- await expect(page.locator('[data-scene-id="acc"]')).toContainText('01');
- await expect(page.locator('[data-scene-id="website"]')).toContainText('02');
- await expect(page.locator('[data-scene-id="website"]')).toContainText('Website');
- await scroller.focus();
- await page.keyboard.press('PageDown');
- await expect.poll(()=>scroller.evaluate(e=>e.scrollTop)).toBeGreaterThan(0);
- for(const size of [{width:1440,height:1000},{width:390,height:844}]){
-  await page.setViewportSize(size);
-  for(const id of ['acc','website']){
-   await page.locator('[data-scene-id="'+id+'"]').focus();
-   await expect(page.locator('[data-scene-id="'+id+'"]')).toBeInViewport();
-  }
-  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(size.width);
- }
- await page.locator('[data-scene-id="website"]').focus();
- await page.keyboard.press('Enter');
- await expect(page.getByRole('heading',{name:'Website',exact:true})).toBeVisible();
- const attribution=page.getByRole('link',{name:'THATG33K on Website (opens in a new tab)'});
- await expect(attribution).toHaveAttribute('href',SEENE_BRAND.url);
- expect(await page.locator('[data-seene-capture="scene"]').getByRole('link').count()).toBe(0);
- await page.locator('.seene-export summary').focus();await page.keyboard.press('Enter');
- const fps=page.getByRole('combobox',{name:'Export frame rate'});
- await expect(fps).toBeFocused();
- await page.keyboard.press('Escape');
- await expect(page.locator('.seene-export summary')).toBeFocused();
- await page.screenshot({path:'test-results/studio-scene-mobile.png'});
- await page.getByRole('link',{name:'Back to scenes',exact:true}).click();
- await expect(scroller).toBeVisible();
- await expect(page.locator('[data-scene-id="website"]')).toBeInViewport();
- await page.goBack();
- await expect(page.getByRole('heading',{name:'Website',exact:true})).toBeVisible();
- await page.reload();
- await expect(page.getByRole('slider',{name:'Scene time'})).toHaveValue('0');
- await page.goto('/?seene-scene=missing');
- await expect(page.getByRole('alert')).toContainText("can't be opened");
- await page.getByRole('link',{name:'go back to all scenes'}).click();
- await expect(page.getByRole('alert')).toHaveCount(0);
- await expect(scroller).toBeVisible();
+test('local studio explains its project registration flow using the platform API',async({page})=>{
+ let requests=0;
+ await page.route('**/__seene/platform/projects',async route=>{
+  if(route.request().method()==='GET'){
+   requests++;
+   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({home:'/tmp/seene-browser-fixture',projects:[]})});
+  } else await route.continue();
+ });
+ await page.goto('/#/projects');
+ await expect(page.getByRole('heading',{name:'Local studio'})).toBeVisible();
+ await expect(page.getByRole('heading',{name:'Your projects'})).toBeVisible();
+ await expect(page.getByText('No projects registered yet')).toBeVisible();
+ await expect(page.getByRole('form',{name:'Register project'})).toBeVisible();
+ await expect(page.getByLabel('Project folder path')).toBeVisible();
+ await expect(page.getByRole('button',{name:/Register project/})).toBeDisabled();
+ await expect(page.getByRole('link',{name:'Back to overview'})).toHaveAttribute('href','#/');
+ expect(requests).toBe(1);
 });

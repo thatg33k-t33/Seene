@@ -24,18 +24,27 @@ export async function isRegularFile(root: string, target: string): Promise<boole
   return stat ? stat.isFile() && !stat.isSymbolicLink() : false;
 }
 
+const ignoredScanDirectories = new Set([
+  ".agents", ".cache", ".claude", ".codex", ".cursor", ".git", ".idea", ".kilo",
+  ".next", ".opencode", ".seene", ".turbo", ".vscode", ".zed", ".vite",
+  "build", "coverage", "dist", "node_modules", "out", "vendor",
+]);
+
 export async function scanDirectory(root: string, dir: string, maxEntries = 1000): Promise<string[]> {
   const absolute = await scopedPath(root, dir);
   const results: string[] = [];
   async function walk(current: string) {
     if (results.length >= maxEntries) return;
-    const entries = await import("node:fs/promises").then(fs => fs.readdir(current, { withFileTypes: true })).catch(() => []);
+    const entries = await import("node:fs/promises").then(fs => fs.readdir(current, { withFileTypes: true })).catch(error => {
+      if (error?.code === "ENOENT") return [];
+      throw error;
+    });
     for (const entry of entries) {
       if (results.length >= maxEntries) break;
       const resPath = path.join(current, entry.name);
       const relPath = path.relative(root, resPath).replace(/\\/g, "/");
       if (entry.isDirectory()) {
-        if (entry.name === ".git" || entry.name === ".seene" || entry.name === "node_modules") continue;
+        if (ignoredScanDirectories.has(entry.name)) continue;
         await walk(resPath);
       } else if (entry.isFile()) {
         results.push(relPath);

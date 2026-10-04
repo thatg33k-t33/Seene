@@ -2,7 +2,7 @@ import {afterEach,describe,it,expect,vi} from "vitest";
 import {mkdtemp,mkdir,writeFile,readFile,rm,readdir,symlink,rename} from "node:fs/promises";
 import path from "node:path";
 import {tmpdir} from "node:os";
-import {executeProjectCommand as command} from "../../src/project/commands";
+import { executeProjectCommand as command } from "../../src/project/commands";
 import * as services from "../../src/project/services";
 const roots:string[]=[];
 async function put(root:string,file:string,text:string){await mkdir(path.dirname(path.join(root,file)),{recursive:true});await writeFile(path.join(root,file),text);}
@@ -41,6 +41,91 @@ describe("portable host connections",()=>{
  });
  it("rejects an incompatible React renderer before writes",async()=>{
   const root=await host("custom","17.0.2");expect(await run(root)).toMatchObject({success:false,issues:[{code:"missing-installation"}]});expect(await readdir(root)).not.toContain(".seene");
+ });
+ it("detects a Next 15 App Router host from its declared framework before considering Vite",async()=>{
+  const root=await host("next-app");
+  const packagePath=path.join(root,"package.json");
+  const pkg=JSON.parse(await readFile(packagePath,"utf8"));
+  pkg.dependencies.next="15.2.8";
+  pkg.dependencies.vite="7.3.6";
+  pkg.scripts.dev="next dev";
+  await writeFile(packagePath,JSON.stringify(pkg));
+  await put(root,"app/page.tsx","export default function Home(){return <main>Host homepage stays unchanged</main>}\n");
+
+  const initialized=success(await run(root));
+  expect(initialized.integration).toMatchObject({kind:"next-app",route:"/seene"});
+  expect(await readFile(path.join(root,"app/page.tsx"),"utf8")).toContain("Host homepage stays unchanged");
+  expect(await readFile(path.join(root,"app/seene/page.jsx"),"utf8")).toContain("SeeneStudio");
+  expect(await readFile(path.join(root,"src/seene/Studio.jsx"),"utf8")).toContain("active");
+
+  const fetch=vi.spyOn(services,"fetchText").mockResolvedValue(`<meta name="seene-project" content="${initialized.project!.projectId}">`);
+  const opened=success(await run(root,"open-preview",{url:"http://localhost:3000",launch:false}));
+  expect(opened.url).toBe("http://localhost:3000/seene?seene-preview=1");
+  expect(fetch).toHaveBeenCalledExactlyOnceWith("http://localhost:3000/seene?seene-preview=1",30_000);
+ });
+ it("connects a Next App Router root implemented by a route-group layout",async()=>{
+  const root=await host("custom");
+  const packagePath=path.join(root,"package.json");
+  const pkg=JSON.parse(await readFile(packagePath,"utf8"));
+  pkg.dependencies.next="15.2.8";
+  pkg.scripts.dev="next dev";
+  await writeFile(packagePath,JSON.stringify(pkg));
+  const page="export default function Home(){return <main>Route-group homepage</main>}\n";
+  await put(root,"src/app/(app)/layout.tsx","export default function Layout({children}) { return <html><body>{children}</body></html> }\n");
+  await put(root,"src/app/(app)/page.tsx",page);
+
+  const initialized=success(await run(root));
+  expect(initialized.project?.entry).toBe("src/app/(app)/seene/page.jsx");
+  expect(initialized.integration).toMatchObject({kind:"next-app",route:"/seene"});
+  expect(await readFile(path.join(root,"src/app/(app)/page.tsx"),"utf8")).toBe(page);
+  expect(await readFile(path.join(root,"src/app/(app)/seene/page.jsx"),"utf8")).toContain("SeeneStudio");
+  success(await run(root,"validate-project"));
+ });
+ it("gives an actionable unavailable-server error for the generated Next route",async()=>{
+  const root=await host("next-app");
+  const initialized=success(await run(root));
+  vi.spyOn(services,"fetchText").mockRejectedValue(new Error("ECONNREFUSED"));
+  const result=await run(root,"open-preview",{url:"http://localhost:3000",launch:false});
+  expect(result).toMatchObject({success:false,issues:[{code:"missing-dev-server",message:expect.stringContaining("Start this project's existing Next.js dev script")} ]});
+  expect(JSON.stringify(result)).toContain("/seene?seene-preview=1");
+  expect(initialized.project?.adapter).toBe("next-app");
+ });
+ it("does not route a next dev script through Vite when next is missing from dependencies",async()=>{
+  const root=await host("custom");
+  const packagePath=path.join(root,"package.json");
+  const pkg=JSON.parse(await readFile(packagePath,"utf8"));
+  pkg.dependencies.vite="7.3.6";
+  pkg.scripts.dev="next dev";
+  await writeFile(packagePath,JSON.stringify(pkg));
+  const result=await run(root);
+  expect(result).toMatchObject({success:false,issues:[{code:"unsupported-project",message:expect.stringContaining("Next.js dev script was detected")} ]});
+  expect(JSON.stringify(result)).not.toContain("Vite entry setup");
+  expect(await readdir(root)).not.toContain(".seene");
+ });
+ it("documents and reports the required manual mount for portable React hosts",async()=>{
+  const root=await host("custom");
+  success(await run(root));
+  const handoff=await readFile(path.join(root,"SEENE.md"),"utf8");
+  expect(handoff).toContain("did not edit your renderer entry");
+  expect(handoff).toContain("enabled={developmentFlag}");
+  const result=await run(root,"open-preview",{url:"http://localhost:3000",launch:false});
+  expect(result).toMatchObject({success:false,issues:[{code:"manual-preview",message:expect.stringContaining("does not mount it in a custom React renderer")} ]});
+  expect(JSON.stringify(result)).toContain("process.env.NODE_ENV === 'development'");
+ });
+ it("safely refreshes an unchanged generated handoff from an earlier connection",async()=>{
+  const root=await host("next-app");
+  success(await run(root));
+  const manifestPath=path.join(root,".seene/integration.json");
+  const manifest=JSON.parse(await readFile(manifestPath,"utf8"));
+  const oldHandoff="# Seene by THATG33K\n\nGenerated by Seene init. Earlier generated guide.\n";
+  manifest.files["SEENE.md"]=oldHandoff;
+  await writeFile(manifestPath,JSON.stringify(manifest,null,2)+"\n");
+  await put(root,"SEENE.md",oldHandoff);
+
+  const upgraded=success(await run(root));
+  expect(upgraded.changed).toBe(true);
+  expect(await readFile(path.join(root,"SEENE.md"),"utf8")).toContain("development-only Studio route at");
+  expect(success(await run(root,"validate-project")).project).toEqual(upgraded.project);
  });
  it("can explicitly use the generic connection in any Next host",async()=>{
   const root=await host();const result=success(await run(root,"init-project",{adapter:"react"}));expect(result.integration?.kind).toBe("react");expect(await readdir(path.join(root,"app"))).toEqual(["layout.tsx"]);

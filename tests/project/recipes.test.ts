@@ -3,6 +3,7 @@ import { mkdtemp, mkdir, writeFile, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { executeRecipeCommand } from "../../src/project/recipes";
+import { discoverRecipes } from "../../src/project/discovery";
 import * as commands from "../../src/project/commands";
 import * as services from "../../src/project/services";
 import { loadSceneRecipes } from "../../src/core/recipes";
@@ -31,6 +32,23 @@ afterEach(async () => {
 describe("scoped recipe commands", () => {
   it("returns honest empty discovery for a missing directory", async () => {
     expect(await executeRecipeCommand("list-scenes", {}, { root: await root() })).toEqual({ success: true, data: { scenes: [], issues: [] } });
+  });
+  it("keeps project worktrees and generated/cache directories out of broad discovery scans", async () => {
+    const value = await root();
+    await add(value, "valid");
+    const ignored = [".kilo/worktrees/beautiful-makemake", ".agents/worktrees/task", ".claude", ".codex", ".cursor", ".git", ".idea", ".next", ".turbo", ".vscode", ".vite", ".cache", "build", "coverage", "dist", "node_modules", "out", "vendor"];
+    for (const directory of ignored)
+      await put(value, `${directory}/src/seene/scenes/test-one.scene.json`, JSON.stringify(recipe("test-one")));
+    await put(value, `${directory}/.kilo/worktrees/beautiful-makemake/src/seene/scenes/test-one.scene.json`, JSON.stringify(recipe("test-one")));
+
+    const scanned = await services.scanDirectory(value, ".", 1000);
+    expect(scanned).toContain(`${directory}/valid.scene.json`);
+    for (const directory of ignored)
+      expect(scanned.some(file => file.startsWith(`${directory}/`))).toBe(false);
+
+    const catalog = await discoverRecipes(value);
+    expect(catalog.scenes.map(scene => scene.id)).toEqual(["valid"]);
+    expect(catalog.issues).toEqual([]);
   });
   it("loads exactly the browser core catalog without executing components", async () => {
     const value = await root();

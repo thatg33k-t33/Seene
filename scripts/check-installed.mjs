@@ -80,7 +80,7 @@ try {
   const initialized=JSON.parse(initResult.stdout);
   assert.equal(initialized.success,true);
   assert.equal(initialized.data.handoff.path,'SEENE.md');
-  assert.equal(initialized.data.handoff.guideCommand,'pnpm exec seene guide --json');
+  assert.equal(initialized.data.handoff.guideCommand,'npx seene guide --json');
   assert.equal(new URL(initialized.data.url).port,String(chosen));
   const entryAfter=await readFile(path.join(host,'src/main.tsx'),'utf8');
   assert.ok(entryAfter.includes('<DashboardProvider><App /></DashboardProvider>'));

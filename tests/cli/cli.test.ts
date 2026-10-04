@@ -10,7 +10,7 @@ describe("CLI adapter", () => {
   it("has side-effect-free help", async () => {
     const execute = vi.fn();
     const help = (await runCli(["--help"], context, execute)).stdout;
-    for (const text of ["npx @thatg33k/seene init", SEENE_BRAND.title, SEENE_BRAND.url, "--package accepts a local .tgz", "SEENE.md"])
+    for (const text of ["npx @thatg33k/seene init", SEENE_BRAND.title, SEENE_BRAND.url, "--package accepts a local .tgz", "SEENE.md", "must be mounted manually"])
       expect(help).toContain(text);
     expect(execute).not.toHaveBeenCalled();
   });
@@ -27,6 +27,16 @@ describe("CLI adapter", () => {
       ["open-preview",{url:"http://127.0.0.1:6199",launch:false},{root:"/host"}],
     ]);
     expect(r.code).toBe(0);expect(JSON.parse(r.stdout).data.url).toContain("seene-preview");
+  });
+  it("prints the manual mount requirement during non-JSON initialization", async () => {
+    const execute = vi.fn().mockResolvedValue({ success: true, data: {
+      project: { version: 1, projectId: "00000000-0000-4000-8000-000000000000", entry: "src/seene/ProjectPreview.jsx", packageManager: "npm", adapter: "react" },
+      integration: { kind: "react", component: "src/seene/ProjectPreview.jsx", instructions: "Manual integration required: mount SeeneProjectPreview with a development-only enabled prop before opening." },
+    } });
+    const result = await runCli(["init"], context, execute);
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain("Manual integration required");
+    expect(result.stdout).toContain("development-only enabled prop");
   });
   it("does not open after failed init", async () => {
     const execute=vi.fn().mockResolvedValue({success:false,issues:[{code:"unsupported",message:"Use a Vite React project."}]});

@@ -16,27 +16,31 @@ const CAPABILITIES = [
   { title: "Open source", body: "MIT licensed. The library, CLI and this site live in one public repository." },
 ];
 
-const WORKFLOW = [
-  { step: "01", title: "Install", body: "Run the init command in a React project. It installs the package and writes your integration.", command: SEENE_INSTALL_COMMAND },
-  { step: "02", title: "Compose", body: "Select your real components and frame them with the scene inspector." },
-  { step: "03", title: "Animate", body: "Set camera and focus tracks over a timeline, then preview against your running app." },
-  { step: "04", title: "Export", body: "Render the scene to video once the composition is right." },
-];
+const RECIPE_EXAMPLE = `{
+  "version": 1,
+  "id": "dashboard",
+  "title": "Dashboard",
+  "definition": { "scene": { "nodes": [{ "id": "panel" }] } }
+}`;
 
-const OPEN_STUDIO_COMMAND = "npx seene open --url http://127.0.0.1:5173";
+const COMPONENT_EXAMPLE = `import { Surface } from "@thatg33k/seene";
+import Dashboard from "../../Dashboard";
 
-const QUICK_START = `import { Scene, Surface } from "@thatg33k/seene";
-import "@thatg33k/seene/style.css";
-
-export function Hero() {
+export default function DashboardScene() {
   return (
-    <Scene>
-      <Surface id="panel" style={{ width: 1200, height: 800 }}>
-        <YourDashboard />
-      </Surface>
-    </Scene>
+    <Surface id="panel" style={{ width: 1400, height: 980 }}>
+      <Dashboard />
+    </Surface>
   );
 }`;
+
+const MANUAL_MOUNT_EXAMPLE = `import { SeeneProjectPreview } from "./seene/ProjectPreview";
+
+<ExistingProviders>
+  <SeeneProjectPreview enabled={developmentFlag}>
+    <ExistingApp />
+  </SeeneProjectPreview>
+</ExistingProviders>`;
 
 function ExternalLink({ href, className = "", children }: { href: string; className?: string; children: ReactNode }) {
   return (
@@ -63,7 +67,7 @@ function CopyButton({ value, label }: { value: string; label?: string }) {
 function CommandLine({ value, copy = true }: { value: string; copy?: boolean }) {
   return (
     <div className="flex flex-col gap-2 rounded-md border border-[var(--seene-border)] bg-[var(--seene-surface)] p-3 sm:flex-row sm:items-center">
-      <code className="flex-1 overflow-x-auto whitespace-nowrap px-1 font-mono text-sm">{value}</code>
+      <code className="min-w-0 max-w-full flex-1 overflow-x-auto whitespace-nowrap px-1 font-mono text-sm">{value}</code>
       {copy && <CopyButton value={value} />}
     </div>
   );
@@ -122,40 +126,56 @@ export function LandingView() {
       <FrameSection label="Install and start" edge="both" texture rails={[{ kind: "solid", flex: 4 }, { kind: "dashed", flex: 2 }, { kind: "solid", flex: 2 }]}>
         <div id="install" className="py-14">
           <h2 className="seene-h2 text-3xl">Install and start</h2>
-          <p className="mx-auto mt-3 max-w-xl text-center text-sm leading-relaxed text-[var(--seene-text-muted)]">
-            One command installs the package with your own package manager, connects your app and
-            writes an <code className="font-mono">SEENE.md</code> guide. Nothing is uploaded and no account is required.
+          <p className="mx-auto mt-3 max-w-2xl text-center text-sm leading-relaxed text-[var(--seene-text-muted)]">
+            Seene supports React DOM 18.2 or 19 and Node.js 22.12 or newer for the CLI. It works with
+            standard Vite React roots, Next.js App/Pages Router projects, and custom React DOM renderers.
+            Run init from your application package directory; your existing homepage and providers stay yours.
           </p>
           <div className="mx-auto mt-8 max-w-3xl text-left">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--seene-text-muted)]">1 · Install</h3>
-            <div className="mt-2"><CommandLine value={SEENE_INSTALL_COMMAND} /></div>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--seene-text-muted)]">1 · Install and initialize</h3>
+            <p className="mt-2 text-sm leading-relaxed text-[var(--seene-text-muted)]">Init installs <code className="font-mono">@thatg33k/seene</code> using the project package manager, then writes a project connection and the generated <code className="font-mono">SEENE.md</code> instructions.</p>
+            <div className="mt-3"><CommandLine value={SEENE_INSTALL_COMMAND} /></div>
+            <p className="mt-3 text-sm leading-relaxed text-[var(--seene-text-muted)]">Standard Vite setup wraps the existing React root. Next.js setup adds a development-only <code className="font-mono">/seene</code> route without changing the homepage. Other React renderers get a preview wrapper that you mount manually.</p>
 
-            <h3 className="mt-8 text-xs font-semibold uppercase tracking-wide text-[var(--seene-text-muted)]">2 · Author a scene</h3>
-            <pre className="mt-2 overflow-x-auto rounded-md border border-[var(--seene-border)] bg-[var(--seene-surface)] p-4 font-mono text-xs leading-relaxed"><code>{QUICK_START}</code></pre>
+            <h3 className="mt-8 text-xs font-semibold uppercase tracking-wide text-[var(--seene-text-muted)]">2 · Author a recipe and matching component</h3>
+            <p className="mt-2 text-sm leading-relaxed text-[var(--seene-text-muted)]">Create a lowercase slug pair directly under <code className="font-mono">src/seene/scenes</code>. The recipe ID must match both filenames; the component default-exports React UI whose <code className="font-mono">Surface</code> IDs match the recipe nodes.</p>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <div className="min-w-0"><p className="mb-2 font-mono text-xs text-[var(--seene-text-muted)]">dashboard.scene.json</p><pre className="min-w-0 max-w-full overflow-x-auto rounded-md border border-[var(--seene-border)] bg-[var(--seene-surface)] p-4 font-mono text-xs leading-relaxed"><code>{RECIPE_EXAMPLE}</code></pre></div>
+              <div className="min-w-0"><p className="mb-2 font-mono text-xs text-[var(--seene-text-muted)]">dashboard.tsx</p><pre className="min-w-0 max-w-full overflow-x-auto rounded-md border border-[var(--seene-border)] bg-[var(--seene-surface)] p-4 font-mono text-xs leading-relaxed"><code>{COMPONENT_EXAMPLE}</code></pre></div>
+            </div>
 
-            <h3 className="mt-8 text-xs font-semibold uppercase tracking-wide text-[var(--seene-text-muted)]">3 · Open the studio</h3>
-            <div className="mt-2"><CommandLine value={OPEN_STUDIO_COMMAND} /></div>
+            <h3 className="mt-8 text-xs font-semibold uppercase tracking-wide text-[var(--seene-text-muted)]">3 · Discover and validate</h3>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <CommandLine value="npx seene scenes --json" />
+              <CommandLine value="npx seene validate" />
+            </div>
+            <p className="mt-3 text-sm leading-relaxed text-[var(--seene-text-muted)]">For Next.js and manually mounted React connections, run <code className="font-mono">npx seene sync</code> after adding or removing scene/component pairs to refresh the generated import catalog. Vite discovers the files through its development glob.</p>
+
+            <h3 className="mt-8 text-xs font-semibold uppercase tracking-wide text-[var(--seene-text-muted)]">4 · Start your app and open its local preview</h3>
+            <p className="mt-2 text-sm text-[var(--seene-text-muted)]">Start the host with its existing dev script in one terminal. Then use the origin for that framework:</p>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <article className="min-w-0 rounded-md border border-[var(--seene-border)] bg-[var(--seene-surface)] p-4"><h4 className="text-sm font-medium">Next.js</h4><p className="mt-1 text-xs leading-relaxed text-[var(--seene-text-muted)]">Init generates <code className="font-mono">/seene</code>; the CLI verifies that route and opens it. Your App Router homepage is not replaced.</p><div className="mt-3"><CommandLine value="npx seene open --url http://localhost:3000" /></div></article>
+              <article className="min-w-0 rounded-md border border-[var(--seene-border)] bg-[var(--seene-surface)] p-4"><h4 className="text-sm font-medium">Standard Vite</h4><p className="mt-1 text-xs leading-relaxed text-[var(--seene-text-muted)]">Init connects the existing root. The optional Vite plugin enables scene-file creation from Studio.</p><div className="mt-3"><CommandLine value="npx seene open --url http://localhost:5173" /></div></article>
+            </div>
+
+            <h3 className="mt-8 text-xs font-semibold uppercase tracking-wide text-[var(--seene-text-muted)]">Custom React renderer · manual mount</h3>
+            <p className="mt-2 text-sm leading-relaxed text-[var(--seene-text-muted)]">Init does not edit custom entry points. This example assumes a host entry at <code className="font-mono">src/main.tsx</code>; adjust the wrapper import to be relative to your entry/layout. Mount it inside your existing provider tree and set the development flag for your framework:</p>
+            <pre className="mt-3 min-w-0 max-w-full overflow-x-auto rounded-md border border-[var(--seene-border)] bg-[var(--seene-surface)] p-4 font-mono text-xs leading-relaxed"><code>{MANUAL_MOUNT_EXAMPLE}</code></pre>
+            <p className="mt-3 text-sm leading-relaxed text-[var(--seene-text-muted)]">For a Next.js manual mount in <code className="font-mono">src/app/(app)/layout.tsx</code>, the relative import is <code className="font-mono">../../seene/ProjectPreview</code> and the flag is <code className="font-mono">process.env.NODE_ENV === "development"</code>. In a Vite entry use <code className="font-mono">import.meta.env.DEV</code>. Keep <code className="font-mono">active</code> unset so the <code className="font-mono">?seene-preview=1</code> query activates the preview, then run <code className="font-mono">npx seene open --url &lt;origin&gt;</code>.</p>
           </div>
         </div>
       </FrameSection>
-<FrameSection label="Workflow" edge="both" rails={[{ kind: "solid", flex: 3 }, { kind: "dashed", flex: 2 }, { kind: "solid", flex: 3 }]}>
+
+      <FrameSection label="Troubleshooting" edge="both" rails={[{ kind: "solid", flex: 3 }, { kind: "dashed", flex: 2 }, { kind: "solid", flex: 3 }]}>
         <div className="py-14">
-          <h2 className="seene-h2 text-3xl">How it works</h2>
-          <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {WORKFLOW.map(item => (
-              <article key={item.step} className="flex flex-col gap-3 rounded-md border border-[var(--seene-border)] bg-[var(--seene-surface)] p-5">
-                <div>
-                  <span className="font-mono text-xs font-semibold text-[var(--seene-accent)]">{item.step}</span>
-                  <h3 className="mt-1 text-sm font-medium">{item.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-[var(--seene-text-muted)]">{item.body}</p>
-                </div>
-                {item.command && (
-                  <div className="mt-auto truncate rounded-sm border border-[var(--seene-border)] bg-[var(--seene-surface-2)] px-2.5 py-1.5 font-mono text-[11px]">
-                    <span className="text-[var(--seene-text-muted)]">$ </span>{item.command}
-                  </div>
-                )}
-              </article>
-            ))}
+          <h2 className="seene-h2 text-3xl">Troubleshooting</h2>
+          <div className="mt-6 grid gap-3 md:grid-cols-2">
+            {[
+              ["manual-preview", "The generated React wrapper has not been mounted. Add SeeneProjectPreview around the existing UI inside its providers, then retry open."],
+              ["missing-dev-server", "Start the application's own dev script and pass its local origin: usually localhost:3000 for Next.js or localhost:5173 for Vite."],
+              ["invalid-scenes", "Keep each recipe directly in src/seene/scenes and match its lowercase ID to one sibling .tsx or .jsx component. Fix the reported JSON/component path."],
+              ["route conflict", "A host route already uses /seene. Preserve that route and initialize with --adapter react to use the documented manual mount instead."],
+            ].map(([title, body]) => <article key={title} className="rounded-md border border-[var(--seene-border)] bg-[var(--seene-surface)] p-4"><h3 className="font-mono text-xs font-semibold">{title}</h3><p className="mt-2 text-sm leading-relaxed text-[var(--seene-text-muted)]">{body}</p></article>)}
           </div>
         </div>
       </FrameSection>

@@ -26,7 +26,7 @@ seene export --url URL --output FILE [--fps 30|60|120] [--width N --height N] [-
 
 One-step setup in a React DOM app (React 18.2+ or 19): npx @thatg33k/seene init
 init installs @thatg33k/seene with your package manager, connects the app and writes SEENE.md.
-Next.js and Vite have automatic connections; other hosts get a portable React wrapper.
+Next.js App/Pages Router and standard Vite React roots get automatic connections; other React DOM hosts get a generated wrapper that must be mounted manually.
 Afterwards run it as "seene", "npx seene" or "pnpm exec seene" depending on your package manager.
 --package accepts a local .tgz to install a local build instead; --adapter react forces the portable connection.
 init preserves the existing root/providers and creates SEENE.md for documentation.
